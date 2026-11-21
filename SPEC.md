@@ -67,7 +67,7 @@ It compiles to this IDS specification (the `info` block is left out):
 
 Three things happened that the author did not write: `IfcWall` was expanded to its subtypes
 ([section 5.4](#54-classes-and-subtypes)), the data types were taken from the IFC property set definitions
-([section 5.6](#56-data-types)), and the pattern was checked to be an XML Schema regular expression.
+([section 5.7](#57-data-types)), and the pattern was checked to be an XML Schema regular expression.
 
 ## 3. Lexical structure
 
@@ -82,7 +82,7 @@ Three things happened that the author did not write: `IfcWall` was expanded to i
 | String | `"..."` on one line. A backslash is an ordinary character. A quote inside a string is written twice: `"a ""b"" c"` |
 | Text block | `"""` at the end of a line, then any lines, then `"""` alone on a line. For text with line breaks |
 | Number | `12`, `-3`, `0.15`, `1e3`. The decimal separator is a dot. `12` is an integer and `12.0` is not |
-| Unit | A name after a number, with at most one `/`: `150 mm`, `0.24 W/m2K` ([section 5.7](#57-units)) |
+| Unit | A name after a number on the same line, with at most one `/`: `150 mm`, `0.24 W/m2K` ([section 5.8](#58-units)) |
 | Boolean | `true`, `false` |
 
 Strings are raw so that a pattern is written as it is: `"F\d{2,3}"` contains one backslash.

@@ -55,7 +55,7 @@ Three things the language does that IDS leaves to the author:
 
 ## Build and test
 
-Requires the .NET SDK 8 or later.
+Requires the .NET SDK 9.0.200 or later (the solution file is a `.slnx`). The library itself targets .NET Standard 2.0 and .NET 8.
 
 ```bash
 dotnet test

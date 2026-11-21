@@ -533,7 +533,8 @@ public sealed partial class Parser
         var end = number.Span;
         var unitSpan = number.Span.AtEnd;
 
-        if (At(TokenKind.Name))
+        // A unit stands on the line of its number; a name on the next line starts something else.
+        if (At(TokenKind.Name) && Current.Span.Line == number.Span.EndLine)
         {
             var first = Take();
             unit = first.Text;

@@ -839,7 +839,7 @@ public sealed partial class Parser
             Take();
             name = ParseName("the name of a property");
         }
-        else if (At(TokenKind.Name) || At(TokenKind.String))
+        else if ((At(TokenKind.Name) || At(TokenKind.String)) && Current.Span.Line == _tokens[_pos - 1].Span.EndLine)
         {
             // "property Pset_WallCommon FireRating": the dot is missing
             _diagnostics.Report(
