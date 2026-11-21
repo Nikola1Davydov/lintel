@@ -47,9 +47,11 @@ It always starts with its keyword. Without a constraint it means "is present".
 | `part of` | `part of IfcBuildingStorey via IfcRelContainedInSpatialStructure` (also `IfcRelAggregates`, `IfcRelAssignsToGroup`, `IfcRelNests`, `IfcRelVoidsElement IfcRelFillsElement`; without `via`: any of them) |
 | `entity` | `require entity IfcBuildingElementProxy` (the class as a requirement) |
 
-A name with spaces or other characters is quoted: `property "My Set"."Fire Rating"`.
+A name with spaces or other characters is quoted, and only that name: `property BIM_Intern."Bemerkung intern"`.
 A custom property with a value gets the data type of the value (text: `IfcLabel`); for a measure write it:
-`property ACME.ClearHeight datatype IfcLengthMeasure >= 2.2 m`.
+`property ACME.ClearHeight datatype IfcLengthMeasure >= 2.2 m`. Common data types: `IfcLabel`, `IfcText`,
+`IfcIdentifier`, `IfcBoolean`, `IfcInteger`, `IfcReal`, `IfcCountMeasure`, `IfcLengthMeasure`, `IfcAreaMeasure`,
+`IfcVolumeMeasure`, `IfcPlaneAngleMeasure`, `IfcMassMeasure`, `IfcThermalTransmittanceMeasure`.
 
 ## Constraints: what the value must be
 
@@ -71,13 +73,14 @@ A custom property with a value gets the data type of the value (text: `IfcLabel`
 | `require F` | it has F (and F meets the constraint) |
 | `optional F` | it has no F, or F meets the constraint. Needs a constraint |
 | `prohibit F` | it has no F. `prohibit property` takes no constraint |
-| `require count >= 1` | (whole rule) at least one element is selected |
+| `require count >= 1` | (whole rule) at least one element is selected; it may be the only requirement |
 | `require count = 0` | (whole rule) no element is selected; the rule has no other requirement |
 
 ## Rules that authors get wrong
 
 1. Compare with `=`. There is no `==`, `!=`, `or`, `not`. IDS cannot express them: use a list, a pattern or a second rule.
 2. Text values are in double quotes; numbers, `true` and `false` are not. Text is compared with case.
+   A double quote inside a string is written twice (`""`); every other character is taken as it is.
 3. A pattern is an XML Schema regular expression in double quotes. It always matches the whole value:
    **no `^` and no `$`**, no `(?...)`, no lazy quantifiers, no `\b`. Strings are raw: write `\d`, not `\\d`.
 4. A number that is compared with a measure **carries its unit**: `150 mm`, `2.2 m`, `12 m2`, `0.24 W/m2K`, `45 deg`.

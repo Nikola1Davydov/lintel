@@ -26,16 +26,17 @@ and writes a rule file. The file goes through the checker of this repository.
 | S | 12 | 0 | 0 | both |
 | M | 12 | 0 | 0 | both |
 | L | 12 | 0 | 0 | both |
-| XL | (pending) | | | |
+| XL | 12 | 0 | 1 | both |
 
-Every answer received so far passed on the first attempt. The answers are in [raw/](raw/).
+Every answer passed on the first attempt. The one warning is about style: `"BIM_Intern"."Bemerkung intern"`, where
+the first name needs no quotes; it carries a fix. The answers are in [raw/](raw/).
 
 Reviewed by hand, the twelve rules of each answer say what the paragraphs say:
 
 - units are written and correct: `> 0 m2`, `>= 0.9 m`, `between 2 deg and 5 deg`;
 - the custom angle has its data type: `datatype IfcPlaneAngleMeasure`;
 - the predefined type is with the class: `for IfcRoof type FLAT_ROOF`;
-- the name with a space is quoted: `prohibit property BIM_Intern."Bemerkung intern"`;
+- the name with a space is quoted: `prohibit property BIM_Intern."Bemerkung intern"` (once with both names quoted);
 - the optional requirement is `optional property Pset_WallCommon.AcousticRating matches "Rw [0-9]{2} dB"`;
 - patterns have no anchors;
 - the two requirements that IDS cannot express are left out and named in a comment, as the description asks.
@@ -56,6 +57,10 @@ that are about the language:
 | Whether a facet reads the same after `where` | Stated |
 | Which unit IDS uses for an angle | Stated: write the unit of the requirement, the compiler converts |
 | Whether `source` carries the paragraph number | Stated: the wording without its number |
+| Whether `require count >= 1` may be the only requirement | Stated |
+| How a quote inside a string is written, and whether „ “ ° ² are safe | Stated: a quote is written twice, every other character is taken as it is |
+| Whether only one of the two names of a property may be quoted | Stated: quote only the name that needs it |
+| Which data types exist | The common ones are listed |
 
 The other remarks are about the requirements, not the language: which IFC class "Decken" means, how "Büroräume"
 would be selected, and that `Pset_ColumnCommon.LoadBearing` and `Pset_DoorCommon.IsExternal` are implied by
