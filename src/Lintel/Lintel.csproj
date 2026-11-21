@@ -4,4 +4,7 @@
     <RootNamespace>Lintel</RootNamespace>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Ids\Data\*.txt;Ids\Data\*.tsv" />
+  </ItemGroup>
 </Project>

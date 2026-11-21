@@ -479,6 +479,7 @@ public sealed class StructureChecker
         {
             PatternProblemKind.Anchor => Codes.AnchoredPattern,
             PatternProblemKind.DoubleBackslash => Codes.DoubleBackslash,
+            PatternProblemKind.NonPortableEscape => Codes.NonPortableEscape,
             _ => Codes.InvalidPattern,
         };
 

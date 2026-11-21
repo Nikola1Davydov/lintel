@@ -12,6 +12,12 @@ public enum PatternProblemKind
 
     /// <summary><c>\\d</c> and the like: a doubled backslash that probably comes from JSON habits.</summary>
     DoubleBackslash,
+
+    /// <summary>
+    /// A backslash in front of a character that XML Schema does not let you escape, such as <c>\/</c>.
+    /// Lenient checkers read it as the character itself; strict ones reject the pattern.
+    /// </summary>
+    NonPortableEscape,
 }
 
 public sealed class PatternProblem
@@ -125,6 +131,17 @@ public static class XsdPattern
 
                     if (SingleEscapes.IndexOf(next) < 0 && ClassEscapes.IndexOf(next) < 0)
                     {
+                        if (!char.IsLetterOrDigit(next))
+                        {
+                            // "\/" means "/" for lenient checkers and is an error for strict ones; "/" works for both.
+                            var plain = next == '$' ? "[$]" : next.ToString();
+                            return new PatternProblem(
+                                PatternProblemKind.NonPortableEscape,
+                                $"'\\{next}' is not an escape of XML Schema patterns; some checkers reject it.",
+                                $"Write '{plain}'.",
+                                pattern.Substring(0, i) + plain + pattern.Substring(i + 2));
+                        }
+
                         return Invalid(
                             $"'\\{next}' does not exist in XML Schema patterns.",
                             HintForEscape(next));
@@ -195,9 +212,6 @@ public static class XsdPattern
     {
         'b' or 'B' => "Word boundaries do not exist; the whole value must match.",
         'A' or 'Z' or 'z' or 'G' => "Anchors do not exist; the whole value must match.",
-        '/' => "Write '/' without a backslash.",
-        '"' => "Write the quote twice inside a string: \"\".",
-        '$' => "Write '[$]' for a dollar sign.",
         'x' or 'u' => "Write the character itself.",
         >= '0' and <= '9' => "Back-references do not exist.",
         _ => null,

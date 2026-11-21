@@ -2,7 +2,8 @@ namespace Lintel.Diagnostics;
 
 /// <summary>
 /// Every problem the compiler reports (SPEC.md, section 9). The first digit is the stage that finds it:
-/// 1 characters, 2 grammar, 3 structure without the IFC schema, 4 IFC schema, 5 warnings, 6 information.
+/// 1 characters, 2 grammar, 3 structure without the IFC schema, 4 IFC schema, 5 warnings, 6 information,
+/// 7 import of IDS.
 /// </summary>
 public static class Codes
 {
@@ -49,6 +50,10 @@ public static class Codes
     public static readonly DiagnosticDescriptor DoubleBackslash = Warning("W503", "double-backslash");
     public static readonly DiagnosticDescriptor RangeAsTwoBounds = Warning("W504", "range-as-two-bounds");
     public static readonly DiagnosticDescriptor DuplicateIdentifier = Warning("W505", "duplicate-identifier");
+    public static readonly DiagnosticDescriptor NonPortableEscape = Warning("W506", "non-portable-escape");
+
+    // Import of IDS
+    public static readonly DiagnosticDescriptor IdsNotRepresentable = Warning("W701", "ids-not-representable");
 
     private static DiagnosticDescriptor Error(string code, string name) => new(code, name, Severity.Error);
 

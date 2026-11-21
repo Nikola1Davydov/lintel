@@ -1,0 +1,23 @@
+This is a language-design probe; there are no right or wrong answers. Answer purely from your own intuition and prior knowledge. Do NOT use any tools (no file reads, no searches, no shell) and do not ask questions — just reply. Ignore any repository or project context you may have been given; it is unrelated.
+
+Imagine a small plain-text language made for one job: writing down information requirements for BIM models in IFC format so that a program can check a model against them. You have never seen its documentation. Write the statements below in that language the way you would expect its syntax to look — the form you would bet a parser of such a language accepts on the first try. Do not invent a syntax to be original; write the most predictable one.
+
+File context: the project uses IFC4. Each statement comes from the project's requirements document, and its ID (R1…R12) and wording should remain traceable in the file.
+
+R1. All load-bearing walls must have a fire rating. Valid values look like F30, F90, REI60, REI120 (F or REI followed by two or three digits). Use the standard IFC property set for walls.
+R2. Every space must have a Name and a LongName.
+R3. Floor slabs (slabs whose predefined type is FLOOR) must be between 150 mm and 400 mm thick (Width in the slab base quantities).
+R4. Elements classified in "Uniclass 2015" with a code starting with "Ss_25" must have a material named "Concrete" or "Masonry".
+R5. Every door must be located in a building storey (spatial containment).
+R6. Doors do not need an acoustic rating, but when a door has AcousticRating in Pset_DoorCommon, the value must be one of "Rw 32 dB", "Rw 37 dB", "Rw 42 dB".
+R7. No element of any kind may carry the property "LegacyCode" of the property set "ACME_Old".
+R8. For external walls, ThermalTransmittance in Pset_WallCommon must be present, must have the data type IfcThermalTransmittanceMeasure, and must not exceed 0.24.
+R9. The model must not contain any IfcBuildingElementProxy objects.
+R10. The model must contain at least one IfcBuildingStorey.
+R11. Every wall, column, beam and slab must have the property Status in the property set "ACME_Common" with one of the project's allowed status values: New, Existing, Demolish, Temporary.
+R12. Every door and window must have the same Status property with one of the same allowed status values (define the allowed values once and reuse them).
+
+Reply with exactly three parts:
+1. One fenced code block containing the complete file.
+2. A list of at most 10 short bullets naming the syntax conventions you assumed (keywords, how properties/attributes/classifications/materials are referenced, operators, how "optional" and "forbidden" are expressed, comments, strings/regex, units, lists).
+3. One-line answers: (a) In your file, does a statement about IfcWall also apply to subtypes such as IfcWallStandardCase? (b) In R3, in which unit does the checker interpret the numbers you wrote? (c) In R6, does a door without the property pass? (d) In R8, in which unit is 0.24?

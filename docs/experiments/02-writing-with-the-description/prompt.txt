@@ -1,0 +1,24 @@
+You are testing whether a one-page language description is sufficient to write in that language.
+
+1. Read exactly ONE file with the Read tool: /home/user/lintel/LLM.md. It describes a small language called Lintel. Do NOT read, list or search any other file or directory, do not run commands, do not use the web, do not ask questions. Ignore any other project context you were given.
+
+2. Translate the requirements below (an excerpt of a German BIM requirements document, an "AIA") into ONE Lintel file for IFC4. Write one rule per requirement. Use the paragraph number as the rule ID (for example 4.1.1) and put the German wording into `source`. Give each rule a short English name.
+
+3. Reply with exactly two parts: (a) one fenced code block that contains the complete file and nothing else; (b) at most 5 short bullets: requirements you could not express and why, and anything in the description that was unclear or missing for this task.
+
+Requirements:
+
+4.1.1 Alle Räume müssen eine Raumnummer (Attribut Name) im Format „R-“ gefolgt von drei Ziffern haben, z. B. R-101.
+4.1.2 Jeder Raum hat eine Nettogrundfläche größer als 0 m² (Mengensatz Qto_SpaceBaseQuantities, NetFloorArea).
+4.2.1 Tragende Stützen müssen eine Feuerwiderstandsklasse R30, R60, R90 oder R120 haben (Standard-Eigenschaftssatz für Stützen).
+4.2.3 Außentüren müssen mindestens 0,90 m breit sein (Qto_DoorBaseQuantities, Width).
+4.3.1 Alle Wände, Decken und Dächer müssen nach „DIN 276“ klassifiziert sein; der Code beginnt mit 3 (Kostengruppe 300).
+4.3.2 Fenster müssen einem Geschoss räumlich zugeordnet sein.
+4.4.1 Bauteile aus dem Material „Stahlbeton“ müssen die Eigenschaft Expositionsklasse im Eigenschaftssatz „BIM_Beton“ haben; erlaubt sind XC1, XC2, XC3 und XC4.
+4.4.2 Wände müssen kein Schalldämmmaß angeben. Wenn eine Wand aber die Eigenschaft AcousticRating (Pset_WallCommon) hat, muss der Wert dem Muster „Rw NN dB“ mit zwei Ziffern entsprechen, z. B. „Rw 42 dB“.
+4.5.1 Das Modell darf keine Platzhalterobjekte (IfcBuildingElementProxy) enthalten.
+4.5.2 Das Modell muss mindestens ein Grundstück (IfcSite) enthalten.
+4.6.1 Flachdächer (Dächer mit dem vordefinierten Typ FLAT_ROOF) müssen eine Dachneigung zwischen 2° und 5° haben (Eigenschaft „Neigung“ im Eigenschaftssatz „BIM_Dach“, ein Winkel).
+4.6.2 Kein Bauteil darf die Eigenschaft „Bemerkung intern“ im Eigenschaftssatz „BIM_Intern“ tragen.
+4.7.1 Die Summe der Nettogrundflächen aller Büroräume muss mindestens 300 m² betragen.
+4.7.2 Türen dürfen nicht breiter sein, als die Wand, in der sie sitzen, dick ist.

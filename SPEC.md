@@ -136,7 +136,7 @@ term         = "in" ( list | NAME )
 patterns     = STRING | "[" STRING { "," STRING } "]" ;
 note         = "note" text ;
 
-list         = "[" literal { "," literal } "]" ;
+list         = "[" literal { "," literal } [ "," ] "]" ;
 literal      = STRING | number | "true" | "false" ;
 number       = NUMBER [ NAME [ "/" NAME ] ] ;         (* a number and its unit *)
 text         = STRING | TEXTBLOCK ;
@@ -279,6 +279,8 @@ Names of property sets, properties and attributes may also be a list or a patter
 Patterns are XML Schema regular expressions. The whole value must match, so there are no anchors:
 `^` and `$` are an error. Lazy quantifiers, look-around, back-references and `\b` do not exist.
 `\d`, `\w`, `\s`, `[A-Z]`, `{2,3}`, `|`, `(...)` and `.` work as usual.
+Checkers built on the regular expressions of .NET or Python accept more than XML Schema allows, for example `\/`;
+the compiler warns and writes the form that every checker accepts.
 
 A real number is equal to the required value within the IDS tolerance: a relative part of 10⁻⁶ plus 10⁻⁶.
 Bounds are compared exactly.
@@ -539,7 +541,8 @@ The compiler reports problems as data. Lines and columns start at 1; the end pos
       "fix": [ { "line": 6, "column": 36, "endLine": 6, "endColumn": 45, "text": "FireRating" } ]
     }
   ],
-  "fixed": "ifc IFC4\n\nrule R1 ..."
+  "fixed": "ifc IFC4\n\nrule R1 ...",
+  "fixedOk": true
 }
 ```
 
@@ -554,17 +557,19 @@ The compiler reports problems as data. Lines and columns start at 1; the end pos
 | `expected` | The values allowed at this place, at most 30 |
 | `fix` | Edits that repair the problem. Present only when the repair cannot change the meaning the author intended |
 | `fixed` | The whole source with all fixes applied, when there are fixes |
+| `fixedOk` | Whether `fixed` is free of errors |
 
 Codes are grouped by the stage that finds the problem:
 
 | Range | Stage | Examples |
 | --- | --- | --- |
-| `E1xx` | Characters | `E101` unterminated-string, `E102` unexpected-character, `E103` malformed-number |
-| `E2xx` | Grammar | `E201` unexpected-token, `E202` unknown-keyword, `E203` misplaced-statement, `E204` duplicate-statement, `E205` missing-for, `E206` unsupported-operator, `E207` one-facet-per-requirement, `E208` unsupported-phrase, `E209` missing-facet-keyword |
-| `E3xx` | Structure, no IFC schema needed | `E301` anchored-pattern, `E302` invalid-pattern, `E303` invalid-cardinality, `E304` unsupported-count, `E305` requirement-not-allowed, `E306` missing-requirement, `E307` missing-where, `E308` unknown-list, `E309` duplicate-definition, `E310` invalid-ifc-version, `E311` missing-ifc-version, `E312` invalid-list, `E313` invalid-metadata |
-| `E4xx` | IFC schema | `E401` unknown-class, `E402` unknown-attribute, `E403` unknown-property-set, `E404` unknown-property, `E405` unknown-predefined-type, `E406` unknown-datatype, `E407` datatype-mismatch, `E408` value-type-mismatch, `E409` unit-required, `E410` unknown-unit, `E411` property-set-not-applicable |
-| `W5xx` | Warnings | `W501` predefined-type-as-attribute, `W502` quoted-name, `W503` double-backslash, `W504` range-as-two-bounds, `W505` duplicate-identifier |
-| `I6xx` | Information | `I601` datatype-inferred, `I602` classes-expanded |
+| `E1xx` | Characters | `E101` unterminated-string, `E102` unexpected-character, `E103` malformed-number, `E104` unterminated-text-block |
+| `E2xx` | Grammar | `E201` unexpected-token, `E202` unknown-keyword, `E203` misplaced-statement, `E204` duplicate-statement, `E205` missing-for, `E206` unsupported-operator, `E207` one-facet-per-requirement, `E208` unsupported-phrase, `E209` missing-facet-keyword, `E210` pattern-in-slashes, `E211` reserved-word |
+| `E3xx` | Structure, no IFC schema needed | `E301` anchored-pattern, `E302` invalid-pattern, `E303` invalid-cardinality, `E304` unsupported-count, `E305` requirement-not-allowed, `E306` missing-requirement, `E307` missing-where, `E308` unknown-list, `E309` duplicate-definition, `E310` invalid-ifc-version, `E311` missing-ifc-version, `E312` invalid-list, `E313` invalid-metadata, `E314` invalid-range, `E315` uri-not-allowed, `E316` invalid-relation |
+| `E4xx` | IFC schema (planned) | `E401` unknown-class, `E402` unknown-attribute, `E403` unknown-property-set, `E404` unknown-property, `E405` unknown-predefined-type, `E406` unknown-datatype, `E407` datatype-mismatch, `E408` value-type-mismatch, `E409` unit-required, `E410` unknown-unit, `E411` property-set-not-applicable |
+| `W5xx` | Warnings | `W501` predefined-type-as-attribute, `W502` quoted-name, `W503` double-backslash, `W504` range-as-two-bounds, `W505` duplicate-identifier, `W506` non-portable-escape |
+| `I6xx` | Information (planned) | `I601` datatype-inferred, `I602` classes-expanded |
+| `W7xx` | Import of IDS | `W701` ids-not-representable |
 
 Spellings that authors are known to try get their own message and fix. Examples:
 `==` for `=`; `^...$` in a pattern; `forbid` or `must not` for `prohibit`; `requirement` or `spec` for `rule`;
