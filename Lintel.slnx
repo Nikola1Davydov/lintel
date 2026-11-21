@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Lintel/Lintel.csproj" />
+    <Project Path="src/Lintel.Cli/Lintel.Cli.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Lintel.Tests/Lintel.Tests.csproj" />
+  </Folder>
+</Solution>
