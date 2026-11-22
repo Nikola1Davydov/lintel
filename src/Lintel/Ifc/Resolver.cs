@@ -422,7 +422,7 @@ public static class Resolver
         {
             foreach (var name in AuditRules.Classes(entity, schemas, schema))
             {
-                result.UnionWith(schema.Info[name]?.PredefinedTypeValues ?? Enumerable.Empty<string>());
+                result.UnionWith(schema.AuditClass(name)?.PredefinedTypeValues ?? Enumerable.Empty<string>());
             }
         }
 

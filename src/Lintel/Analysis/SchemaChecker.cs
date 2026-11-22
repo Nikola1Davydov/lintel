@@ -112,7 +112,7 @@ public sealed class SchemaChecker
                 if (known.Count == 0)
                 {
                     // IDS lets a file name an enumeration of IFC as a class. Nothing in a model has such a class.
-                    var other = schemas.Select(s => s.Info[name.Text]).FirstOrDefault(c => c is not null);
+                    var other = schemas.Select(s => s.AuditClass(name.Text)).FirstOrDefault(c => c is not null);
                     if (classes.Only && other is not null && other.Name == name.Text)
                     {
                         _diagnostics.Report(
@@ -145,7 +145,7 @@ public sealed class SchemaChecker
                 foreach (var schema in schemas.Where(s => s.FindClass(name.Text) is null))
                 {
                     var here = Resolver.ExpandClass(name.Text, schemas)
-                        .Select(upper => schema.Info[upper]?.Name)
+                        .Select(upper => schema.AuditClass(upper)?.Name)
                         .Where(n => n is not null)
                         .ToList();
                     if (here.Count > 0)
@@ -291,8 +291,8 @@ public sealed class SchemaChecker
                 // A value of one selected class that another selected class does not have.
                 var lacking = schemas
                     .SelectMany(schema => AuditRules.Classes(entity, schemas, schema)
-                        .Where(c => schema.Info[c]?.PredefinedTypeValues?.Contains(type.Text) != true)
-                        .Select(c => schema.Info[c]?.Name ?? c))
+                        .Where(c => schema.AuditClass(c)?.PredefinedTypeValues?.Contains(type.Text) != true)
+                        .Select(c => schema.AuditClass(c)?.Name ?? c))
                     .Distinct(StringComparer.Ordinal)
                     .ToList();
                 if (lacking.Count > 0)
@@ -372,7 +372,7 @@ public sealed class SchemaChecker
             var whole = AuditRules.Classes(partOf.Entity, schemas, schema);
             if (whole.Count > 0 && !whole.Overlaps(AuditRules.ConcreteClasses(relation.OwnerIfcType, schema)))
             {
-                var owner = schema.Info[relation.OwnerIfcType]?.Name ?? relation.OwnerIfcType;
+                var owner = schema.AuditClass(relation.OwnerIfcType)?.Name ?? relation.OwnerIfcType;
                 var written = partOf.Entity.Classes.Kind == MatcherKind.Pattern
                     ? "no class of the pattern"
                     : string.Join(", ", partOf.Entity.Classes.Names.Select(n => n.Text)) + " is not";
@@ -949,7 +949,7 @@ public sealed class SchemaChecker
                 _diagnostics.Report(
                     warning ? Codes.NotInSchema : Codes.NoCommonClass,
                     facet.Span,
-                    $"With {partOf.Relation} the part is a kind of {schema.Info[part ?? string.Empty]?.Name ?? part}; none of the selected classes is." + suffix,
+                    $"With {partOf.Relation} the part is a kind of {schema.AuditClass(part ?? string.Empty)?.Name ?? part}; none of the selected classes is." + suffix,
                     hint: "Name another relationship after 'via', or leave it out.");
                 break;
 

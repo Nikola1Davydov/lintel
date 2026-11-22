@@ -17,6 +17,9 @@ public sealed class IfcSchema
 
     private readonly SchemaInfo _info;
     private readonly Dictionary<string, IfcClass> _classes = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, IfcClass> _classesByUpperName = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, ClassInfo> _auditClasses = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, IReadOnlyCollection<string>> _applicableNames = new(StringComparer.Ordinal);
     private readonly Dictionary<string, IfcPropertySet> _propertySets = new(StringComparer.Ordinal);
     private readonly Lazy<IReadOnlyList<string>> _attributeNames;
     private readonly Lazy<IReadOnlyList<string>> _auditClassNames;
@@ -29,9 +32,16 @@ public sealed class IfcSchema
         Flag = flag;
         _info = info;
 
-        foreach (var classInfo in info.Where(c => c.Type != ClassType.Enumeration))
+        foreach (var classInfo in info)
         {
-            _classes[classInfo.Name] = new IfcClass(classInfo);
+            // The lookup of the audit library is slow for a name that is not spelled as in the documentation.
+            _auditClasses[classInfo.Name.ToUpperInvariant()] = classInfo;
+            if (classInfo.Type != ClassType.Enumeration)
+            {
+                var found = new IfcClass(classInfo);
+                _classes[classInfo.Name] = found;
+                _classesByUpperName[classInfo.Name.ToUpperInvariant()] = found;
+            }
         }
 
         foreach (var set in info.PropertySets)
@@ -57,6 +67,12 @@ public sealed class IfcSchema
 
     /// <summary>The schema as the official IDS audit knows it. The checks ask it wherever they must agree with the audit.</summary>
     internal SchemaInfo Info => _info;
+
+    /// <summary>
+    /// The class or the enumeration of this name, in any case, as the audit knows it; <c>null</c> when it knows none.
+    /// </summary>
+    internal ClassInfo? AuditClass(string name) =>
+        _auditClasses.TryGetValue(name.ToUpperInvariant(), out var found) ? found : null;
 
     /// <summary>
     /// Every name the audit takes for a class, in upper case. Besides the entity classes these are the
@@ -113,7 +129,7 @@ public sealed class IfcSchema
             return found;
         }
 
-        return _classes.Values.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
+        return _classesByUpperName.TryGetValue(name.ToUpperInvariant(), out found) ? found : null;
     }
 
     public IfcPropertySet? FindPropertySet(string name) => _propertySets.TryGetValue(name, out var found) ? found : null;
@@ -136,7 +152,7 @@ public sealed class IfcSchema
             if (set is not null)
             {
                 var concrete = set.ApplicableClasses
-                    .Select(name => _info[name])
+                    .Select(AuditClass)
                     .Where(c => c is not null)
                     .SelectMany(c => c!.MatchingConcreteClasses)
                     .Select(c => c.Name)
@@ -145,12 +161,12 @@ public sealed class IfcSchema
                 foreach (var name in concrete)
                 {
                     result.Add(name.ToUpperInvariant());
-                    foreach (var typeName in _info[name]?.RelationTypeClasses ?? Array.Empty<string>())
+                    foreach (var typeName in AuditClass(name)?.RelationTypeClasses ?? Array.Empty<string>())
                     {
                         result.Add(typeName.ToUpperInvariant());
 
                         // The audit adds the direct subtypes of the type object, such as IfcDoorStyle for IfcTypeProduct.
-                        foreach (var sub in _info[typeName]?.SubClasses ?? new List<ClassInfo>())
+                        foreach (var sub in AuditClass(typeName)?.SubClasses ?? new List<ClassInfo>())
                         {
                             result.Add(sub.Name.ToUpperInvariant());
                         }
@@ -164,8 +180,20 @@ public sealed class IfcSchema
     }
 
     /// <summary>The classes a standard property set may be attached to, as the IFC documentation spells them.</summary>
-    public IReadOnlyCollection<string> ClassesOf(IfcPropertySet set) =>
-        AuditClassesOf(set.Name).Select(upper => _info[upper]?.Name ?? upper).ToList();
+    public IReadOnlyCollection<string> ClassesOf(IfcPropertySet set)
+    {
+        var upperNames = AuditClassesOf(set.Name);
+        lock (_applicableNames)
+        {
+            if (!_applicableNames.TryGetValue(set.Name, out var names))
+            {
+                names = new HashSet<string>(upperNames.Select(upper => AuditClass(upper)?.Name ?? upper), StringComparer.Ordinal);
+                _applicableNames[set.Name] = names;
+            }
+
+            return names;
+        }
+    }
 
     /// <summary>
     /// The class that the whole of a partOf relation must be: IfcGroup for IfcRelAssignsToGroup, and so on.

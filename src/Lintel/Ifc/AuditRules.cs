@@ -44,7 +44,7 @@ internal static class AuditRules
         }
 
         return new HashSet<string>(
-            Resolver.ExpandClasses(entity.Classes, schemas).Where(name => schema.Info[name] is not null),
+            Resolver.ExpandClasses(entity.Classes, schemas).Where(name => schema.AuditClass(name) is not null),
             StringComparer.Ordinal);
     }
 
@@ -58,7 +58,7 @@ internal static class AuditRules
         without = null;
         foreach (var name in classes)
         {
-            var info = schema.Info[name];
+            var info = schema.AuditClass(name);
             var values = info?.PredefinedTypeValues?.ToList() ?? new List<string>();
             if (values.Count == 0)
             {
@@ -154,7 +154,7 @@ internal static class AuditRules
     /// <summary>The classes of the schema that can have instances and are the named class or a subtype of it, in upper case.</summary>
     public static HashSet<string> ConcreteClasses(string topClass, IfcSchema schema) =>
         new(
-            (schema.Info[topClass]?.MatchingConcreteClasses ?? Enumerable.Empty<ClassInfo>()).Select(c => c.Name.ToUpperInvariant()),
+            (schema.AuditClass(topClass)?.MatchingConcreteClasses ?? Enumerable.Empty<ClassInfo>()).Select(c => c.Name.ToUpperInvariant()),
             StringComparer.Ordinal);
 
     /// <summary>

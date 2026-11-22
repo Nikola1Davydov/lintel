@@ -465,7 +465,7 @@ public sealed class IdsImporter
         // IDS also accepts the name of an enumeration of IFC as a class name.
         foreach (var schema in _schemas)
         {
-            if (schema.Info[name] is { } other)
+            if (schema.AuditClass(name) is { } other)
             {
                 return other.Name;
             }
