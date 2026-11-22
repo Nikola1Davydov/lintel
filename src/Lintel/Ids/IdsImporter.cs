@@ -305,13 +305,14 @@ public sealed class IdsImporter
             Unsupported(element, "The property has a value and no dataType; IDS requires the data type.");
         }
 
-        // The compiler finds the data type of a property with a value by itself; it is written only when it differs.
+        // The compiler finds the data type of a property with a value by itself; it is written only when it differs,
+        // and for a number, where the file knows what the compiler could only guess.
         if (property.Value is not null && type is not null)
         {
             var written = property.DataType;
             property.DataType = null;
-            var found = Resolver.DataTypeOf(property, _schemas, NoLists, out _);
-            if (found?.Name != type.Name)
+            var found = Resolver.DataTypeOf(property, _schemas, NoLists, out var origin);
+            if (found?.Name != type.Name || (origin == DataTypeOrigin.Value && found.IsNumeric))
             {
                 property.DataType = written;
             }
