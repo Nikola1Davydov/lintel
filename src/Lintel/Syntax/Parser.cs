@@ -753,7 +753,7 @@ public sealed partial class Parser
 
         if (facet is not null)
         {
-            facet.Span = SourceSpan.Join(start.Span, _tokens[Math.Max(_pos - 1, 0)].Span);
+            facet.Span = SpanFrom(start);
         }
 
         return facet;
@@ -1228,7 +1228,7 @@ public sealed partial class Parser
             matcher.Note = ParseText("text in quotes")?.Value;
         }
 
-        matcher.Span = SourceSpan.Join(start.Span, _tokens[Math.Max(_pos - 1, 0)].Span);
+        matcher.Span = SpanFrom(start);
     }
 
     // ---------------------------------------------------------------- helpers shared by the parts of the parser

@@ -50,7 +50,7 @@ public class DiagnosticsTests
     [InlineData("require property A.B = TRUE", "E202", "require property A.B = true")]
     [InlineData("require property A.B = New", "E201", "require property A.B = \"New\"")]
     [InlineData("require property A.B >= 1 and <= 5", "W504", "require property A.B between 1 and 5")]
-    [InlineData("require property A.B >= 150 mm and <= 400 mm", "W504", "require property A.B between 150 mm and 400 mm")]
+    [InlineData("require property Qto_WallBaseQuantities.Width >= 150 mm and <= 400 mm", "W504", "require property Qto_WallBaseQuantities.Width between 150 mm and 400 mm")]
     [InlineData("require property A.B type IfcLabel", "E202", "require property A.B datatype IfcLabel")]
     [InlineData("require property A.B: IfcLabel = \"x\"", "E202", "require property A.B datatype IfcLabel = \"x\"")]
     [InlineData("require property A.B as IfcLabel", "E202", "require property A.B datatype IfcLabel")]

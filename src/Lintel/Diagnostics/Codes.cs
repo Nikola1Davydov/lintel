@@ -44,6 +44,24 @@ public static class Codes
     public static readonly DiagnosticDescriptor UriNotAllowed = Error("E315", "uri-not-allowed");
     public static readonly DiagnosticDescriptor InvalidRelation = Error("E316", "invalid-relation");
 
+    // IFC schema
+    public static readonly DiagnosticDescriptor UnknownClass = Error("E401", "unknown-class");
+    public static readonly DiagnosticDescriptor UnknownAttribute = Error("E402", "unknown-attribute");
+    public static readonly DiagnosticDescriptor UnknownPropertySet = Error("E403", "unknown-property-set");
+    public static readonly DiagnosticDescriptor UnknownProperty = Error("E404", "unknown-property");
+    public static readonly DiagnosticDescriptor UnknownPredefinedType = Error("E405", "unknown-predefined-type");
+    public static readonly DiagnosticDescriptor UnknownDataType = Error("E406", "unknown-datatype");
+    public static readonly DiagnosticDescriptor DataTypeMismatch = Error("E407", "datatype-mismatch");
+    public static readonly DiagnosticDescriptor ValueTypeMismatch = Error("E408", "value-type-mismatch");
+    public static readonly DiagnosticDescriptor UnitRequired = Error("E409", "unit-required");
+    public static readonly DiagnosticDescriptor UnknownUnit = Error("E410", "unknown-unit");
+    public static readonly DiagnosticDescriptor PropertySetNotApplicable = Error("E411", "property-set-not-applicable");
+    public static readonly DiagnosticDescriptor AbstractClass = Error("E412", "abstract-class");
+    public static readonly DiagnosticDescriptor ClassNotInVersion = Error("E413", "class-not-in-version");
+    public static readonly DiagnosticDescriptor DataTypeRequired = Error("E414", "datatype-required");
+    public static readonly DiagnosticDescriptor IncompatibleEntity = Error("E415", "incompatible-entity");
+    public static readonly DiagnosticDescriptor InvalidRelationTarget = Error("E416", "invalid-relation-target");
+
     // Warnings
     public static readonly DiagnosticDescriptor PredefinedTypeAsAttribute = Warning("W501", "predefined-type-as-attribute");
     public static readonly DiagnosticDescriptor QuotedName = Warning("W502", "quoted-name");
@@ -51,6 +69,7 @@ public static class Codes
     public static readonly DiagnosticDescriptor RangeAsTwoBounds = Warning("W504", "range-as-two-bounds");
     public static readonly DiagnosticDescriptor DuplicateIdentifier = Warning("W505", "duplicate-identifier");
     public static readonly DiagnosticDescriptor NonPortableEscape = Warning("W506", "non-portable-escape");
+    public static readonly DiagnosticDescriptor InferredNumberType = Warning("W507", "inferred-number-type");
 
     // Import of IDS
     public static readonly DiagnosticDescriptor IdsNotRepresentable = Warning("W701", "ids-not-representable");

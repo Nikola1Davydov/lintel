@@ -420,6 +420,16 @@ public sealed partial class Parser
 
     private SourceSpan TrimLeadingSpace(SourceSpan span) => WithPrecedingSpace(span);
 
+    /// <summary>
+    /// The range from a token to the last token read; the empty range in front of the token when nothing was read,
+    /// which happens after an error.
+    /// </summary>
+    private SourceSpan SpanFrom(Token start)
+    {
+        var last = _tokens[Math.Max(_pos - 1, 0)];
+        return last.Span.Start >= start.Span.Start ? SourceSpan.Join(start.Span, last.Span) : start.Span.AtStart;
+    }
+
     /// <summary>The white space at the start of the line the range begins on.</summary>
     private string IndentOf(SourceSpan span)
     {

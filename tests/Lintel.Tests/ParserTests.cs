@@ -81,13 +81,13 @@ public class ParserTests
     {
         var rule = ParseRule("""
             rule "x"
-              for only IfcSlab, IfcRoof type FLOOR, "Podium"
+              for only IfcSlab, IfcSlabStandardCase type FLOOR, "Podium"
               require attribute Name
             """);
 
         var entity = rule.Entity!;
         Assert.True(entity.Classes.Only);
-        Assert.Equal(new[] { "IfcSlab", "IfcRoof" }, entity.Classes.Names.Select(n => n.Text));
+        Assert.Equal(new[] { "IfcSlab", "IfcSlabStandardCase" }, entity.Classes.Names.Select(n => n.Text));
         Assert.Equal(new[] { ("FLOOR", false), ("Podium", true) }, entity.Types!.Names.Select(n => (n.Text, n.Quoted)));
     }
 
@@ -140,13 +140,13 @@ public class ParserTests
             define Status = ["New", "Existing"]
             rule "x"
               for IfcWall
-              require property A.B between 150 mm and 400 mm
-              require property A.C > 0 m2 and <= 500 m2
+              require property A.B datatype IfcLengthMeasure between 150 mm and 400 mm
+              require property A.C datatype IfcAreaMeasure > 0 m2 and <= 500 m2
               require property A.D in Status
-              require property A.E in [1, 2, 3]
+              require property A.E datatype IfcInteger in [1, 2, 3]
               require attribute Name matches ["A.*", "B.*"] and length <= 12 note "naming scheme"
               require property A.F = true
-              require property A.G <= 0.24 W/m2K
+              require property A.G datatype IfcThermalTransmittanceMeasure <= 0.24 W/m2K
             """);
 
         var values = rule.Requirements.Select(r => r.Facet).Select(f => f is PropertyFacet p ? p.Value! : ((AttributeFacet)f).Value!).ToList();
@@ -227,7 +227,7 @@ public class ParserTests
     [Fact]
     public void Layout_has_no_meaning()
     {
-        var oneLine = ParseRule("rule R1 \"x\" for IfcWall where property A.B = true and property A.C = 1 require attribute Name require attribute Tag");
+        var oneLine = ParseRule("rule R1 \"x\" for IfcWall where property A.B = true and property A.C = \"c\" require attribute Name require attribute Tag");
 
         Assert.Equal(2, oneLine.Where.Count);
         Assert.Equal(2, oneLine.Requirements.Count);

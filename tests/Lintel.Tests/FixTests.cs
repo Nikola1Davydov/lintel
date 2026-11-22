@@ -23,7 +23,7 @@ public class FixTests
             rule R3 "Slabs"
               for IfcSlab where PredefinedType = FLOOR
               require property Qto_SlabBaseQuantities.Width >= 150 mm and <= 400 mm
-              require attribute Name is present and attribute LongName exists
+              require attribute Name is present and attribute Description exists
 
             rule R6 "Doors"
               for IfcDoor
@@ -47,7 +47,7 @@ public class FixTests
               for IfcSlab type FLOOR
               require property Qto_SlabBaseQuantities.Width between 150 mm and 400 mm
               require attribute Name
-              require attribute LongName
+              require attribute Description
 
             rule R6 "Doors"
               for IfcDoor

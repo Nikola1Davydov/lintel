@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Lintel.Diagnostics;
-using Lintel.Ids;
 using Lintel.Text;
 using Xunit;
 using Xunit.Abstractions;
@@ -22,25 +21,25 @@ public class CorpusTests
     public CorpusTests(ITestOutputHelper output) => _output = output;
 
     [CorpusFact]
-    public void Every_official_ids_file_can_be_written_as_lintel()
+    public void Every_official_ids_file_goes_to_lintel_and_back_unchanged()
     {
         var files = Corpus.Files().ToList();
         Assert.True(files.Count > 300, $"only {files.Count} files found under {Corpus.Root}");
 
         var failures = new List<string>();
-        var invalidRejected = 0;
-        var invalidTotal = 0;
+        var rejected = new List<string>();
+        var accepted = new List<string>();
 
         foreach (var path in files)
         {
             var name = Path.GetFileName(path);
-            var notes = new DiagnosticBag();
-            var imported = IdsImporter.Import(File.ReadAllText(path), notes);
-            var text = Printer.Print(imported);
-            var result = LintelCompiler.Check(text);
+            var original = File.ReadAllText(path);
+            var imported = LintelCompiler.Import(original);
+            var compiled = LintelCompiler.Compile(imported.Source);
+            var check = compiled.Check;
 
             // The printed text is in the grammar, whatever the IDS file contained.
-            var grammar = result.Diagnostics.Where(d => d.Code.StartsWith("E1", StringComparison.Ordinal) || d.Code.StartsWith("E2", StringComparison.Ordinal)).ToList();
+            var grammar = check.Diagnostics.Where(d => d.Code.StartsWith("E1", StringComparison.Ordinal) || d.Code.StartsWith("E2", StringComparison.Ordinal)).ToList();
             if (grammar.Count > 0)
             {
                 failures.Add($"{name}: not in the grammar: {grammar[0]}");
@@ -48,39 +47,85 @@ public class CorpusTests
             }
 
             // Printing what was read gives the same text: the canonical layout is stable.
-            var again = Printer.Print(result.File);
-            if (again != text)
+            if (Printer.Print(check.File) != imported.Source)
             {
                 failures.Add($"{name}: the printed text changes when it is read and printed again");
                 continue;
             }
 
-            // Files named invalid-* break a rule of the IDS audit; the others must pass every check.
+            // Files named invalid-* break a rule of the official audit. They must not get through silently.
             if (name.StartsWith("invalid-", StringComparison.Ordinal))
             {
-                invalidTotal++;
-                if (!result.Ok || notes.Items.Count > 0)
-                {
-                    invalidRejected++;
-                }
+                (check.Ok && imported.Notes.Count == 0 ? accepted : rejected).Add(name);
+                continue;
             }
-            else if (!result.Ok || notes.Items.Count > 0)
+
+            // One example labels every value of a list with an annotation of its own. Lintel has a note for a whole
+            // constraint only; the importer says so, and the file is not expected to come back unchanged.
+            if (name == "IDS_random_example.ids")
             {
-                failures.Add($"{name}: {result.Diagnostics.FirstOrDefault(d => d.Severity == Severity.Error)?.ToString() ?? notes.Items[0].ToString()}");
+                Assert.All(imported.Notes, note => Assert.Contains("annotation of the single value", note.Message));
+                Assert.True(check.Ok, check.Describe());
+                continue;
+            }
+
+            // Every other file passes every check ...
+            if (!check.Ok || imported.Notes.Count > 0)
+            {
+                failures.Add($"{name}: {check.Diagnostics.FirstOrDefault(d => d.Severity == Severity.Error)?.ToString() ?? imported.Notes[0].ToString()}");
+                continue;
+            }
+
+            // ... comes back as the same IDS ...
+            var before = IdsXml.Canonical(original);
+            var after = IdsXml.Canonical(compiled.Ids!);
+            if (before != after)
+            {
+                failures.Add($"{name}: the IDS changes on the way through Lintel:\n{FirstDifference(before, after)}");
+                continue;
+            }
+
+            // ... and what the compiler writes passes the official audit.
+            var audit = IdsXml.Audit(compiled.Ids!);
+            if (audit.Count > 0)
+            {
+                failures.Add($"{name}: the official audit rejects the output: {audit[0]}");
             }
         }
 
-        _output.WriteLine($"{files.Count} files; {invalidRejected} of {invalidTotal} invalid files are rejected without the IFC schema");
-        Assert.True(failures.Count == 0, string.Join("\n", failures));
+        _output.WriteLine($"{files.Count} files; {rejected.Count} of {rejected.Count + accepted.Count} invalid files are rejected");
+        foreach (var name in accepted)
+        {
+            _output.WriteLine("  not rejected: " + name);
+        }
+
+        Assert.True(failures.Count == 0, $"{failures.Count} files:\n" + string.Join("\n", failures.Take(40)));
+    }
+
+    private static string FirstDifference(string before, string after)
+    {
+        var a = before.Split('\n');
+        var b = after.Split('\n');
+        for (var i = 0; i < Math.Max(a.Length, b.Length); i++)
+        {
+            var x = i < a.Length ? a[i] : "(end)";
+            var y = i < b.Length ? b[i] : "(end)";
+            if (x != y)
+            {
+                return $"    original: {x.Trim()}\n    output:   {y.Trim()}";
+            }
+        }
+
+        return string.Empty;
     }
 
     [CorpusFact]
     public void A_prohibited_specification_with_requirements_is_rejected()
     {
         var path = Corpus.Files().Single(f => f.EndsWith("invalid-prohibited_specifications_invalid_if_requirements_are_specified.ids", StringComparison.Ordinal));
-        var text = Printer.Print(IdsImporter.Import(File.ReadAllText(path), new DiagnosticBag()));
+        var imported = LintelCompiler.Import(File.ReadAllText(path));
 
-        Assert.Contains("E305", LintelCompiler.Check(text).Codes());
+        Assert.Contains("E305", LintelCompiler.Check(imported.Source).Codes());
     }
 }
 

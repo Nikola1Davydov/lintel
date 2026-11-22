@@ -1,4 +1,6 @@
+using System;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Lintel.Syntax;
 
@@ -203,6 +205,75 @@ public static class XsdPattern
         }
 
         return depth != 0 ? Invalid("A '(' is not closed.") : null;
+    }
+
+    /// <summary>
+    /// The pattern as a .NET regular expression that matches a whole value the way XML Schema does;
+    /// <c>null</c> when the pattern cannot be translated.
+    /// </summary>
+    public static Regex? ToRegex(string pattern)
+    {
+        var body = new StringBuilder(pattern.Length + 16);
+        var inClass = 0;
+        for (var i = 0; i < pattern.Length; i++)
+        {
+            var c = pattern[i];
+            if (c == '\\' && i + 1 < pattern.Length)
+            {
+                var next = pattern[++i];
+                body.Append(next switch
+                {
+                    // The multi-character escapes of XML Schema, which differ from those of .NET.
+                    'd' => "\\p{Nd}",
+                    'D' => "\\P{Nd}",
+                    's' => inClass > 0 ? " \\t\\n\\r" : "[ \\t\\n\\r]",
+                    'S' => inClass > 0 ? "\\S" : "[^ \\t\\n\\r]",
+                    'w' => inClass > 0 ? "\\w" : "[^\\p{P}\\p{Z}\\p{C}]",
+                    'W' => inClass > 0 ? "\\W" : "[\\p{P}\\p{Z}\\p{C}]",
+                    'i' => inClass > 0 ? "\\p{L}_:" : "[\\p{L}_:]",
+                    'I' => inClass > 0 ? "\\W" : "[^\\p{L}_:]",
+                    'c' => inClass > 0 ? "\\p{L}\\p{N}_:.\\-" : "[\\p{L}\\p{N}_:.\\-]",
+                    'C' => inClass > 0 ? "\\W" : "[^\\p{L}\\p{N}_:.\\-]",
+                    _ => "\\" + next,
+                });
+                continue;
+            }
+
+            if (c == '[')
+            {
+                inClass++;
+            }
+            else if (c == ']' && inClass > 0)
+            {
+                inClass--;
+            }
+            else if (inClass == 0)
+            {
+                if (c == '^' || c == '$')
+                {
+                    // Not anchors in XML Schema: the characters themselves.
+                    body.Append('\\').Append(c);
+                    continue;
+                }
+
+                if (c == '.')
+                {
+                    body.Append("[^\\n\\r]");
+                    continue;
+                }
+            }
+
+            body.Append(c);
+        }
+
+        try
+        {
+            return new Regex("\\A(?:" + body + ")\\z", RegexOptions.CultureInvariant);
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
     }
 
     private static PatternProblem Invalid(string message, string? hint = null) =>

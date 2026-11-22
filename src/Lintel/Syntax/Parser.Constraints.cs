@@ -82,7 +82,7 @@ public sealed partial class Parser
             constraint.Note = ParseText("text in quotes")?.Value;
         }
 
-        constraint.Span = SourceSpan.Join(start.Span, _tokens[Math.Max(_pos - 1, 0)].Span);
+        constraint.Span = SpanFrom(start);
         return constraint;
     }
 
@@ -137,7 +137,7 @@ public sealed partial class Parser
 
         if (term is not null)
         {
-            term.Span = SourceSpan.Join(start.Span, _tokens[Math.Max(_pos - 1, 0)].Span);
+            term.Span = SpanFrom(start);
         }
 
         return term;

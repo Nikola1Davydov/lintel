@@ -2,8 +2,10 @@ using System.Collections.Generic;
 using System.Linq;
 using Lintel.Analysis;
 using Lintel.Diagnostics;
+using Lintel.Ids;
 using Lintel.Model;
 using Lintel.Syntax;
+using Lintel.Text;
 
 namespace Lintel;
 
@@ -99,14 +101,63 @@ public sealed class CheckResult
     private const int MaxExpected = 30;
 }
 
+/// <summary>The result of compiling one source text to IDS.</summary>
+public sealed class CompileResult
+{
+    internal CompileResult(CheckResult check, string? ids)
+    {
+        Check = check;
+        Ids = ids;
+    }
+
+    public CheckResult Check { get; }
+
+    /// <summary>The IDS 1.0 file; <c>null</c> when the source has errors.</summary>
+    public string? Ids { get; }
+}
+
+/// <summary>The result of reading an IDS file.</summary>
+public sealed class ImportResult
+{
+    internal ImportResult(RuleFile file, string source, IReadOnlyList<Diagnostic> notes)
+    {
+        File = file;
+        Source = source;
+        Notes = notes;
+    }
+
+    public RuleFile File { get; }
+
+    /// <summary>The IDS file as Lintel source, in the canonical layout.</summary>
+    public string Source { get; }
+
+    /// <summary>What the IDS file contains that IDS 1.0 does not allow, or that Lintel cannot represent.</summary>
+    public IReadOnlyList<Diagnostic> Notes { get; }
+}
+
 /// <summary>The entry point of the library.</summary>
 public static class LintelCompiler
 {
     private const int MaxFixPasses = 8;
 
+    /// <summary>Checks a source text and, when it has no errors, writes it as IDS 1.0.</summary>
+    public static CompileResult Compile(string source)
+    {
+        var check = Check(source);
+        return new CompileResult(check, check.Ok ? IdsEmitter.EmitText(check.File) : null);
+    }
+
+    /// <summary>Reads an IDS 1.0 file and writes it as Lintel source.</summary>
+    public static ImportResult Import(string ids)
+    {
+        var notes = new DiagnosticBag();
+        var file = IdsImporter.Import(ids, notes);
+        return new ImportResult(file, Printer.Print(file), notes.Items);
+    }
+
     /// <summary>
-    /// Reads and checks a source text. This stage needs no IFC schema: it covers the grammar and the rules of IDS
-    /// that hold for every schema. It also applies the fixes, pass by pass, and says whether the fixed source is clean.
+    /// Reads and checks a source text: the grammar, the rules of IDS, and every name, data type and unit against the
+    /// IFC versions the file names. It also applies the fixes, pass by pass, and says whether the fixed source is clean.
     /// </summary>
     public static CheckResult Check(string source)
     {
@@ -147,6 +198,7 @@ public static class LintelCompiler
         var bag = new DiagnosticBag();
         var file = Parser.Parse(source, bag);
         StructureChecker.Check(source, file, bag);
+        SchemaChecker.Check(file, bag);
         return (file, Ordered(bag));
     }
 

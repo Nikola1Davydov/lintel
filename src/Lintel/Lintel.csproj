@@ -5,6 +5,6 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Ids\Data\*.txt;Ids\Data\*.tsv" />
+    <PackageReference Include="ids-lib" />
   </ItemGroup>
 </Project>

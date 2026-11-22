@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 using Lintel.Diagnostics;
+using Lintel.Ifc;
 using Lintel.Model;
 using Lintel.Syntax;
 
@@ -12,15 +13,16 @@ namespace Lintel.Ids;
 
 /// <summary>
 /// Reads an IDS 1.0 file into a <see cref="RuleFile"/> (SPEC.md, section 7, right to left).
-/// This first version needs no IFC schema: classes are imported as written (<c>only</c>), and a value gets
-/// its kind and unit from the data type of the facet. What it cannot represent is reported, never dropped silently.
+/// A class list that is a class with all its subtypes becomes that class; any other list is kept with <c>only</c>.
+/// A value gets its kind and its unit from the data type of the property or the type of the attribute.
+/// What cannot be represented is reported, never dropped silently.
 /// </summary>
 public sealed class IdsImporter
 {
     private static readonly XNamespace Ids = "http://standards.buildingsmart.org/IDS";
     private static readonly XNamespace Xs = "http://www.w3.org/2001/XMLSchema";
     private static readonly Regex Number = new(@"^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$", RegexOptions.CultureInvariant);
-    private static readonly Regex UpperName = new(@"^[A-Z][A-Z0-9_]*$", RegexOptions.CultureInvariant);
+    private static readonly Regex UpperName = new("^[A-Z][A-Z0-9_]*$", RegexOptions.CultureInvariant);
     private static readonly string[] InfoElements = { "title", "copyright", "version", "description", "author", "date", "purpose", "milestone" };
 
     private static readonly Dictionary<string, string> RelationNames = new(StringComparer.Ordinal)
@@ -32,7 +34,21 @@ public sealed class IdsImporter
         ["IFCRELVOIDSELEMENT IFCRELFILLSELEMENT"] = "IfcRelVoidsElement IfcRelFillsElement",
     };
 
+    private static readonly HashSet<string> KnownFacets = new(StringComparer.Ordinal)
+    {
+        "annotation", "enumeration", "pattern", "minInclusive", "maxInclusive", "minExclusive", "maxExclusive",
+        "length", "minLength", "maxLength",
+    };
+
+    private static readonly Dictionary<string, ListDefinition> NoLists = new();
+
     private readonly DiagnosticBag _diagnostics;
+
+    /// <summary>The schemas of the specification being read.</summary>
+    private IReadOnlyList<IfcSchema> _schemas = Array.Empty<IfcSchema>();
+
+    /// <summary>The classes that the applicability of the specification being read selects.</summary>
+    private Dictionary<IfcSchema, HashSet<string>>? _selection;
 
     private IdsImporter(DiagnosticBag diagnostics) => _diagnostics = diagnostics;
 
@@ -67,7 +83,7 @@ public sealed class IdsImporter
         var specifications = root.Element(Ids + "specifications")?.Elements(Ids + "specification").ToList() ?? new List<XElement>();
 
         // The versions most specifications share go to the header; the others stay with their rule.
-        var versions = specifications.Select(s => Versions(s)).ToList();
+        var versions = specifications.Select(Versions).ToList();
         var common = versions
             .GroupBy(v => string.Join(" ", v))
             .OrderByDescending(g => g.Count())
@@ -80,7 +96,7 @@ public sealed class IdsImporter
 
         for (var i = 0; i < specifications.Count; i++)
         {
-            var rule = ReadSpecification(specifications[i]);
+            var rule = ReadSpecification(specifications[i], versions[i]);
             if (common is null || !versions[i].SequenceEqual(common))
             {
                 rule.Ifc = versions[i];
@@ -98,7 +114,7 @@ public sealed class IdsImporter
             .Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
             .ToList();
 
-    private Rule ReadSpecification(XElement specification)
+    private Rule ReadSpecification(XElement specification, List<string> versions)
     {
         var rule = new Rule((string?)specification.Attribute("name") ?? string.Empty, SpanOf(specification))
         {
@@ -108,18 +124,25 @@ public sealed class IdsImporter
             HasFor = true,
         };
         _diagnostics.CurrentRule = rule.Label;
+        _schemas = Resolver.SchemasOf(versions);
+        _selection = null;
 
         var applicability = specification.Element(Ids + "applicability");
         if (applicability is not null)
         {
             rule.Count = ReadOccurs(applicability);
-            foreach (var element in applicability.Elements())
+
+            // The classes first: the types of attribute values depend on them.
+            var entity = applicability.Element(Ids + "entity");
+            if (entity is not null)
             {
-                if (element.Name == Ids + "entity")
-                {
-                    rule.Entity = ReadEntity(element);
-                }
-                else if (ReadFacet(element) is { } facet)
+                rule.Entity = ReadEntity(entity);
+                _selection = Resolver.Selection(rule.Entity, _schemas);
+            }
+
+            foreach (var element in applicability.Elements().Where(e => e.Name != Ids + "entity"))
+            {
+                if (ReadFacet(element) is { } facet)
                 {
                     rule.Where.Add(facet);
                     rule.WhereKeywordSpans.Add(facet.Span);
@@ -192,38 +215,32 @@ public sealed class IdsImporter
                 break;
 
             case "attribute":
-                facet = new AttributeFacet(ReadName(element.Element(Ids + "name"), NameKind.Plain))
+                var attributeName = ReadName(element.Element(Ids + "name"), NameKind.Plain);
+                var attributeType = Resolver.AttributeType(attributeName, _selection, _schemas);
+                facet = new AttributeFacet(attributeName)
                 {
-                    Value = ReadValue(element.Element(Ids + "value"), null),
+                    Value = ReadValue(element.Element(Ids + "value"), attributeType?.XmlBase, attributeType?.Type?.Unit),
                 };
                 break;
 
             case "property":
-                var upper = (string?)element.Attribute("dataType");
-                var type = upper is null ? null : IfcNames.DataType(upper);
-                facet = new PropertyFacet(
-                    ReadName(element.Element(Ids + "propertySet"), NameKind.Plain),
-                    ReadName(element.Element(Ids + "baseName"), NameKind.Plain))
-                {
-                    DataType = upper is null ? null : type?.Name ?? upper,
-                    Value = ReadValue(element.Element(Ids + "value"), type),
-                };
+                facet = ReadProperty(element);
                 break;
 
             case "classification":
                 facet = new ClassificationFacet(ReadName(element.Element(Ids + "system"), NameKind.Text))
                 {
-                    Value = ReadValue(element.Element(Ids + "value"), TextType),
+                    Value = ReadValue(element.Element(Ids + "value"), "xs:string", null),
                 };
                 break;
 
             case "material":
-                facet = new MaterialFacet { Value = ReadValue(element.Element(Ids + "value"), TextType) };
+                facet = new MaterialFacet { Value = ReadValue(element.Element(Ids + "value"), "xs:string", null) };
                 break;
 
             case "partOf":
-                var entity = element.Element(Ids + "entity");
-                var partOf = new PartOfFacet(entity is null ? new EntitySelector(new Matcher(MatcherKind.Exact, SpanOf(element))) : ReadEntity(entity));
+                var whole = element.Element(Ids + "entity");
+                var partOf = new PartOfFacet(whole is null ? new EntitySelector(new Matcher(MatcherKind.Exact, SpanOf(element))) : ReadEntity(whole));
                 var relation = (string?)element.Attribute("relation");
                 if (relation is not null)
                 {
@@ -249,17 +266,115 @@ public sealed class IdsImporter
         return facet;
     }
 
+    private PropertyFacet ReadProperty(XElement element)
+    {
+        var upper = (string?)element.Attribute("dataType");
+        var type = upper is null ? null : IfcDataTypes.Find(upper);
+        if (upper is not null && type is null)
+        {
+            Unsupported(element, $"'{upper}' is not an IFC data type.");
+        }
+        else if (upper is not null && upper != upper.ToUpperInvariant())
+        {
+            Unsupported(element, $"IDS writes data types in upper case; '{upper}' is read as {upper.ToUpperInvariant()}.");
+        }
+
+        var property = new PropertyFacet(
+            ReadName(element.Element(Ids + "propertySet"), NameKind.Plain),
+            ReadName(element.Element(Ids + "baseName"), NameKind.Plain))
+        {
+            DataType = upper is null ? null : type?.Name ?? upper,
+        };
+        property.Value = ReadValue(element.Element(Ids + "value"), type?.XmlBase, type?.Unit);
+        if (property.Value is not null && upper is null)
+        {
+            Unsupported(element, "The property has a value and no dataType; IDS requires the data type.");
+        }
+
+        // The compiler finds the data type of a property with a value by itself; it is written only when it differs.
+        if (property.Value is not null && type is not null)
+        {
+            var written = property.DataType;
+            property.DataType = null;
+            var found = Resolver.DataTypeOf(property, _schemas, NoLists, out _);
+            if (found?.Name != type.Name)
+            {
+                property.DataType = written;
+            }
+        }
+
+        return property;
+    }
+
     private EntitySelector ReadEntity(XElement element)
     {
         var classes = ReadName(element.Element(Ids + "name"), NameKind.Class);
-        classes.Only = classes.Kind != MatcherKind.Pattern;
+        if (classes.Kind != MatcherKind.Pattern)
+        {
+            // IDS names classes exactly. When the list is a class with all its subtypes, that class says the same.
+            var upper = classes.Names.Select(n => n.Text.ToUpperInvariant()).ToList();
+            var folded = classes.Names.Count == 0 ? null : Resolver.FoldClasses(upper, _schemas);
+            var names = folded ?? classes.Names.Select(n => n.Text).ToList();
+            var written = new Matcher(names.Count > 1 ? MatcherKind.AnyOf : MatcherKind.Exact, classes.Span)
+            {
+                Only = folded is null,
+                Note = classes.Note,
+            };
+            written.Names.AddRange(names.Select(n => new NameItem(n, false, classes.Span)));
+            classes = written;
+        }
+
         var selector = new EntitySelector(classes);
         if (element.Element(Ids + "predefinedType") is { } predefinedType)
         {
-            selector.Types = ReadName(predefinedType, NameKind.PredefinedType);
+            var types = ReadName(predefinedType, NameKind.PredefinedType);
+
+            // A value of the enumeration of the class is written bare; any other text is a type of the user and quoted.
+            var standard = StandardTypes(classes);
+            if (standard is not null && types.Kind != MatcherKind.Pattern)
+            {
+                var names = types.Names.Select(n => new NameItem(n.Text, !standard.Contains(n.Text), n.Span)).ToList();
+                types.Names.Clear();
+                types.Names.AddRange(names);
+            }
+
+            selector.Types = types;
         }
 
         return selector;
+    }
+
+    /// <summary>The predefined types that every named class has in the schemas; <c>null</c> when a class is not known.</summary>
+    private HashSet<string>? StandardTypes(Matcher classes)
+    {
+        if (classes.Kind == MatcherKind.Pattern || classes.Names.Count == 0)
+        {
+            return null;
+        }
+
+        HashSet<string>? common = null;
+        foreach (var name in classes.Names)
+        {
+            foreach (var schema in _schemas)
+            {
+                var found = schema.FindClass(name.Text);
+                if (found is null)
+                {
+                    continue;
+                }
+
+                if (common is null)
+                {
+                    common = new HashSet<string>(found.PredefinedTypes, StringComparer.Ordinal);
+                }
+                else
+                {
+                    common.IntersectWith(found.PredefinedTypes);
+                }
+            }
+        }
+
+        return common;
     }
 
     private enum NameKind
@@ -281,13 +396,25 @@ public sealed class IdsImporter
     {
         var span = element is null ? default : SpanOf(element);
 
-        NameItem Item(string text) => kind switch
+        NameItem Item(string text, XElement origin)
         {
-            NameKind.Class => new NameItem(IfcNames.Class(text), false, span),
-            NameKind.PredefinedType => new NameItem(text, !UpperName.IsMatch(text), span),
-            NameKind.Text => new NameItem(text, true, span),
-            _ => new NameItem(text, false, span),
-        };
+            switch (kind)
+            {
+                case NameKind.Class:
+                    if (text != text.ToUpperInvariant())
+                    {
+                        Unsupported(origin, $"IDS writes class names in upper case; '{text}' is read as {text.ToUpperInvariant()}.");
+                    }
+
+                    return new NameItem(ClassName(text), false, span);
+                case NameKind.PredefinedType:
+                    return new NameItem(text, !UpperName.IsMatch(text), span);
+                case NameKind.Text:
+                    return new NameItem(text, true, span);
+                default:
+                    return new NameItem(text, false, span);
+            }
+        }
 
         if (element is null)
         {
@@ -297,7 +424,7 @@ public sealed class IdsImporter
         if (element.Element(Ids + "simpleValue") is { } simple)
         {
             var exact = new Matcher(MatcherKind.Exact, span);
-            exact.Names.Add(Item(simple.Value));
+            exact.Names.Add(Item(simple.Value, simple));
             return exact;
         }
 
@@ -308,8 +435,8 @@ public sealed class IdsImporter
             return new Matcher(MatcherKind.Exact, span);
         }
 
-        var patterns = restriction.Elements(Xs + "pattern").Select(p => (string?)p.Attribute("value") ?? string.Empty).ToList();
-        var values = restriction.Elements(Xs + "enumeration").Select(e => (string?)e.Attribute("value") ?? string.Empty).ToList();
+        var patterns = restriction.Elements(Xs + "pattern").ToList();
+        var values = restriction.Elements(Xs + "enumeration").ToList();
         foreach (var other in restriction.Elements().Where(e => e.Name != Xs + "pattern" && e.Name != Xs + "enumeration" && e.Name != Xs + "annotation"))
         {
             Unsupported(other, $"A name cannot be restricted with '{other.Name.LocalName}'.");
@@ -324,28 +451,38 @@ public sealed class IdsImporter
             }
 
             matcher = new Matcher(MatcherKind.Pattern, span);
-            matcher.Patterns.AddRange(patterns.Select(p => new StringLiteral(p) { Span = span }));
+            matcher.Patterns.AddRange(patterns.Select(p => new StringLiteral((string?)p.Attribute("value") ?? string.Empty) { Span = span }));
         }
         else
         {
-            matcher = new Matcher(values.Count == 1 ? MatcherKind.Exact : MatcherKind.AnyOf, span);
-            matcher.Names.AddRange(values.Select(Item));
-            if (values.Count == 1 && kind != NameKind.Class)
-            {
-                // A list of one is still a list in IDS; keep it as one.
-                matcher = new Matcher(MatcherKind.AnyOf, span);
-                matcher.Names.Add(Item(values[0]));
-            }
+            // A list of one name stays a list, so that it is written back as a restriction.
+            matcher = new Matcher(MatcherKind.AnyOf, span);
+            matcher.Names.AddRange(values.Select(v => Item((string?)v.Attribute("value") ?? string.Empty, v)));
         }
 
         matcher.Note = Documentation(restriction);
         return matcher;
     }
 
-    private static readonly IfcDataType TextType = new("IfcLabel", "xs:string", null);
+    /// <summary>The class in the spelling of the IFC documentation; the name as given when no schema of the rule knows it.</summary>
+    private string ClassName(string name)
+    {
+        foreach (var schema in _schemas)
+        {
+            if (schema.FindClassIgnoreCase(name) is { } found)
+            {
+                return found.Name;
+            }
+        }
 
-    /// <summary>Reads a value element. <paramref name="type"/> is the data type of the facet when it is known.</summary>
-    private Constraint? ReadValue(XElement? element, IfcDataType? type)
+        return name;
+    }
+
+    /// <summary>
+    /// Reads a value element. <paramref name="xmlBase"/> is the XML base type that the data type of the facet calls for,
+    /// when it is known; <paramref name="unit"/> is the SI unit of that type.
+    /// </summary>
+    private Constraint? ReadValue(XElement? element, string? xmlBase, string? unit)
     {
         if (element is null)
         {
@@ -355,7 +492,7 @@ public sealed class IdsImporter
         var span = SpanOf(element);
         if (element.Element(Ids + "simpleValue") is { } simple)
         {
-            return new Constraint { Equal = Literal(simple.Value, type?.XmlBase, type?.Unit, simple), Span = span };
+            return new Constraint { Equal = Literal(simple.Value, xmlBase, unit, simple), Span = span };
         }
 
         var restriction = element.Element(Xs + "restriction");
@@ -365,8 +502,13 @@ public sealed class IdsImporter
             return null;
         }
 
-        var xmlBase = (string?)restriction.Attribute("base") ?? type?.XmlBase;
-        var unit = type?.Unit;
+        var written = (string?)restriction.Attribute("base");
+        if (xmlBase is not null && written is not null && written != xmlBase)
+        {
+            Unsupported(restriction, $"The restriction has the base {written}; the data type calls for {xmlBase}.");
+        }
+
+        xmlBase ??= written;
         var constraint = new Constraint { Span = span, Note = Documentation(restriction) };
 
         var values = restriction.Elements(Xs + "enumeration").ToList();
@@ -413,6 +555,11 @@ public sealed class IdsImporter
             Unsupported(other, $"The restriction '{other.Name.LocalName}' is not part of IDS 1.0.");
         }
 
+        foreach (var labelled in restriction.Elements().Where(e => e.Name != Xs + "annotation" && e.HasElements))
+        {
+            Unsupported(labelled, $"The annotation of the single value '{(string?)labelled.Attribute("value")}' is not kept; Lintel has a note for a whole constraint only.");
+        }
+
         if (constraint.Terms.Count == 0)
         {
             Unsupported(restriction, "The restriction is empty.");
@@ -421,12 +568,6 @@ public sealed class IdsImporter
 
         return constraint;
     }
-
-    private static readonly HashSet<string> KnownFacets = new(StringComparer.Ordinal)
-    {
-        "annotation", "enumeration", "pattern", "minInclusive", "maxInclusive", "minExclusive", "maxExclusive",
-        "length", "minLength", "maxLength",
-    };
 
     private static void AddBound(Constraint constraint, BoundKind kind, NumberLiteral? value, SourceSpan span)
     {
