@@ -15,6 +15,20 @@ internal static class Files
 
     private const long MaxBytes = 4 * 1024 * 1024;
 
+    /// <summary>
+    /// The folder that a relative path starts at: the project folder when the client names one, as Claude Code
+    /// does in CLAUDE_PROJECT_DIR, and the working folder of the server otherwise. A client is free to start
+    /// the server in any folder, so the working folder alone says little.
+    /// </summary>
+    public static string BaseDirectory
+    {
+        get
+        {
+            var project = Environment.GetEnvironmentVariable("CLAUDE_PROJECT_DIR");
+            return !string.IsNullOrWhiteSpace(project) && Directory.Exists(project) ? project! : Directory.GetCurrentDirectory();
+        }
+    }
+
     /// <summary>The input of a tool: the text itself, or the content of the file at the path.</summary>
     public static string Input(string? text, string? path, string textParameter, string what, string[] extensions)
     {
@@ -39,7 +53,7 @@ internal static class Files
         var file = new FileInfo(full);
         if (!file.Exists)
         {
-            throw new ToolProblem($"The file {full} does not exist. A relative path starts at {Directory.GetCurrentDirectory()}.");
+            throw new ToolProblem($"The file {full} does not exist. A relative path starts at {BaseDirectory}; give the full path when the file is elsewhere.");
         }
 
         if (file.Length > MaxBytes)
@@ -89,7 +103,7 @@ internal static class Files
         string full;
         try
         {
-            full = Path.GetFullPath(path.Trim());
+            full = Path.GetFullPath(path.Trim(), BaseDirectory);
         }
         catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
         {

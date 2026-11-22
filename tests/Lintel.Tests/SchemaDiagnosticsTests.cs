@@ -27,7 +27,7 @@ public class SchemaDiagnosticsTests
     [InlineData("require property Pset_WallCommon.FireRating in [30, 60]", "E408", "require property Pset_WallCommon.FireRating in [\"30\", \"60\"]")]
     [InlineData("require property A.B datatype IfcInteger = \"5\"", "E408", "require property A.B datatype IfcInteger = 5")]
     [InlineData("require property Qto_WallBaseQuantities.Width >= 150 MM", "E410", "require property Qto_WallBaseQuantities.Width >= 150 mm")]
-    [InlineData("require property Pset_WallCommon.Status = \"NEU\"", "E408", "require property Pset_WallCommon.Status = \"NEW\"")]
+    [InlineData("require property Pset_WallCommon.Status = \"New\"", "E408", "require property Pset_WallCommon.Status = \"NEW\"")]
     public void A_wrong_name_or_value_is_reported_with_its_fix(string line, string code, string fixedLine)
     {
         var result = CheckLine(line);
@@ -152,6 +152,28 @@ public class SchemaDiagnosticsTests
         var result = CheckLine(line);
 
         Assert.Contains("E408", result.Codes());
+    }
+
+    [Fact]
+    public void A_value_of_an_enumeration_of_the_standard_is_repaired_only_when_it_is_the_same_word()
+    {
+        // another spelling of the same word is repaired
+        var cased = CheckLine("require property Pset_WallCommon.Status in [\"New\", \"EXISTING\"]");
+        Assert.Contains("in [\"NEW\", \"EXISTING\"]", cased.Fixed);
+
+        // "neu" looks like NEW, but it is a word of the requirement: the author translates it, not the checker
+        var german = CheckLine("require property Pset_WallCommon.Status in [\"neu\", \"Bestand\"]");
+        var error = german.Single("E408");
+        Assert.Null(error.Fix);
+        Assert.Contains("the value of the standard that means the same", error.Hint);
+        Assert.Contains("NEW", error.Expected!);
+        Assert.Contains("EXISTING", error.Expected!);
+        Assert.Null(german.Fixed);
+
+        // one value of the standard and one of the requirement: valid IDS, and still no guess
+        var mixed = CheckLine("require property Pset_WallCommon.Status in [\"NEW\", \"Bestand\"]");
+        Assert.True(mixed.Ok);
+        Assert.Null(mixed.Single("W511").Fix);
     }
 
     [Fact]

@@ -27,7 +27,7 @@ The short form of this document for agents is [LLM.md](LLM.md).
 ifc IFC4
 
 rule R1 "Fire rating of load-bearing walls"
-  source "AIA 4.2.1: Alle tragenden Wände müssen eine Feuerwiderstandsklasse aufweisen."
+  source "Alle tragenden Wände müssen eine Feuerwiderstandsklasse aufweisen."
   for IfcWall
   where property Pset_WallCommon.LoadBearing = true
   require property Pset_WallCommon.FireRating matches "(F|REI)[0-9]{2,3}"
@@ -53,7 +53,7 @@ It compiles to this IDS specification (the `info` block is left out):
       <value><simpleValue>true</simpleValue></value>
     </property>
   </applicability>
-  <requirements description="AIA 4.2.1: Alle tragenden Wände müssen eine Feuerwiderstandsklasse aufweisen.">
+  <requirements description="Alle tragenden Wände müssen eine Feuerwiderstandsklasse aufweisen.">
     <property dataType="IFCLABEL" cardinality="required">
       <propertySet><simpleValue>Pset_WallCommon</simpleValue></propertySet>
       <baseName><simpleValue>FireRating</simpleValue></baseName>
@@ -170,7 +170,7 @@ A rule has a name, an optional identifier before the name, optional metadata, on
 
 ```lintel fragment
 rule R1 "Fire rating of load-bearing walls"                  # identifier and name
-  source "AIA 4.2.1: Alle tragenden Wände müssen ..."        # the original wording of the requirement
+  source "Alle tragenden Wände müssen ..."        # the original wording of the requirement
   description "Needed for the fire protection concept."      # why it matters
   instructions "Take the class from the fire protection report."  # how to fulfil it
   ifc IFC4, IFC4X3_ADD2                                      # overrides the file header
@@ -317,13 +317,15 @@ The value must fit the data type, and IDS allows different terms for different k
 | --- | --- | --- | --- |
 | Text | `IfcLabel`, `IfcText`, `IfcIdentifier`, ... | `"F90"` | `=`, `in`, `matches`, `length` |
 | Number | `IfcReal`, `IfcInteger`, `IfcCountMeasure`, every measure | `42`, `0.24 W/m2K`; `IfcInteger` without a dot | `=`, `in`, bounds, `between` |
-| True or false | `IfcBoolean`, `IfcLogical` | `true`, `false` | `=` |
+| True or false | `IfcBoolean` | `true`, `false` | `=` |
 | Date and time | `IfcDate`, `IfcDateTime`, `IfcTime`, `IfcDuration` | `"2026-11-22"`, `"2026-11-22T10:00:00"`, `"10:00:00"`, `"P1D"` | `=`, `in`, bounds, `between` |
 
 IDS also allows `matches` on a value that is not text; the pattern is then compared with the way the checker
 writes the value, which IDS does not fix, and the compiler warns.
 A value that IDS can spell and the language cannot write as its kind is written as text and passed on as it is:
 `= "NaN"` for a number, `= "1"` for true.
+`IfcLogical` (true, false or unknown) is text in IDS, and IDS does not say how its three values are spelled;
+require such a property without a value where that is enough.
 
 The value of an attribute has the type of the attribute in the IFC schema, and follows the same table.
 
@@ -667,6 +669,8 @@ Decided:
 3. **`source`** is stored in `requirements/@description`. IDS has no field for the original wording of a requirement.
 4. **The official audit is the judge** of validity ([8](#8-checks-of-the-compiler)): an error where it rejects,
    a warning at most where it accepts.
+5. **A warning does not stop the compiler, but a tool for agents may wait for the repair.** The MCP server holds
+   the IDS back while a warning has a ready fix, unless the author accepts the warning.
 
 Open:
 
@@ -675,5 +679,3 @@ Open:
 3. **Imperial units** are missing; `in` is a keyword.
 4. **Restrictions on names** other than a list or patterns, and the other limits of the round trip
    ([7](#7-mapping-to-ids-10)), are reported and not kept.
-5. **Warnings and the agent**: a warning does not stop the compiler. Whether a tool for agents should refuse to
-   write IDS while a warning has a fix is a decision for the tool, not for the language.

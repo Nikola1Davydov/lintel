@@ -16,7 +16,7 @@ rule "Walls state whether they are load-bearing"
 
 # 2. Selection by a property value, a pattern, the original wording of the requirement.
 rule R1 "Fire rating of load-bearing walls"
-  source "AIA 4.2.1: Alle tragenden Wände müssen eine Feuerwiderstandsklasse aufweisen."
+  source "Alle tragenden Wände müssen eine Feuerwiderstandsklasse aufweisen."
   description "Needed for the fire protection concept."
   instructions "Take the class from the fire protection report."
   for IfcWall

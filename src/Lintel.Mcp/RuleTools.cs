@@ -13,8 +13,11 @@ namespace Lintel.Mcp;
 [McpServerToolType]
 public sealed class RuleTools
 {
-    /// <summary>An IDS text longer than this is not returned as text: it would fill the context of the model.</summary>
-    internal const int MaxIdsCharacters = 60_000;
+    /// <summary>
+    /// An IDS text longer than this is not returned as text: it would fill the context of the model, and clients
+    /// cut or set aside long answers (Claude Code at 50,000 characters).
+    /// </summary>
+    internal const int MaxIdsCharacters = 40_000;
 
     [McpServerTool(Name = "lintel_language_guide", Title = "Lintel language guide", ReadOnly = true, Idempotent = true, Destructive = false, OpenWorld = false)]
     [Description(
@@ -34,7 +37,7 @@ public sealed class RuleTools
         + "A warning is valid IDS that probably says something else than you mean: repair warnings too.")]
     public static CallToolResult ValidateRules(
         [Description("The rules as text. Give this or 'path'.")] string? source = null,
-        [Description("The path of a .lintel file to check. Give this or 'source'.")] string? path = null) =>
+        [Description("The path of a .lintel file to check, full or relative to the project folder. Give this or 'source'.")] string? path = null) =>
         Answer.Of(() =>
         {
             var text = Files.Input(source, path, "source", "the rules", Files.Rules);
@@ -50,7 +53,7 @@ public sealed class RuleTools
         + "'fixed'. Pass acceptWarnings: true to compile rules with such warnings as they are written.")]
     public static CallToolResult CompileRules(
         [Description("The rules as text. Give this or 'path'.")] string? source = null,
-        [Description("The path of a .lintel file to compile. Give this or 'source'.")] string? path = null,
+        [Description("The path of a .lintel file to compile, full or relative to the project folder. Give this or 'source'.")] string? path = null,
         [Description("Where to write the IDS file; the name ends with .ids. Without it the IDS text is returned.")] string? outputPath = null,
         [Description("Replace the file at 'outputPath' when it exists.")] bool overwrite = false,
         [Description("Compile although a warning has a ready fix.")] bool acceptWarnings = false) =>
@@ -91,6 +94,12 @@ public sealed class RuleTools
             ? string.Empty
             : $"\n{Count(warnings.Count, "warning")} left as written:\n" + string.Join("\n", warnings.Select(w => $"- line {w.Span.Line}: {w.Code} {w.Message}"));
 
+        // IDS needs a title; a file that says none is called "Untitled", which a reviewer will not want.
+        if (check.File.Header.Get("title") is null)
+        {
+            remaining += "\nThe rules have no title, so the IDS is titled \"Untitled\". Add a line at the top: title \"...\".";
+        }
+
         if (!string.IsNullOrWhiteSpace(outputPath))
         {
             var written = Files.Output(outputPath!, result.Ids, new[] { ".ids" }, "the IDS", overwrite);
@@ -115,7 +124,7 @@ public sealed class RuleTools
         + "the same IDS. With 'outputPath' the source is written to that .lintel file.")]
     public static CallToolResult ImportIds(
         [Description("The IDS file as text. Give this or 'path'.")] string? ids = null,
-        [Description("The path of an .ids file to read. Give this or 'ids'.")] string? path = null,
+        [Description("The path of an .ids file to read, full or relative to the project folder. Give this or 'ids'.")] string? path = null,
         [Description("Where to write the Lintel source; the name ends with .lintel. Without it the source is returned.")] string? outputPath = null,
         [Description("Replace the file at 'outputPath' when it exists.")] bool overwrite = false) =>
         Answer.Of(() => Import(ids, path, outputPath, overwrite));

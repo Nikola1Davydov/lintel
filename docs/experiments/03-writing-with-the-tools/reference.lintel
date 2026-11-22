@@ -1,0 +1,61 @@
+ifc IFC4
+
+rule R1 "Storeys are named"
+  source "Alle Geschosse des Modells müssen benannt sein. Das Modell muss mindestens ein Geschoss enthalten."
+  for IfcBuildingStorey
+  require count >= 1
+  require attribute Name
+
+rule R2 "Net height of storeys"
+  source "Für jedes Geschoss ist die lichte Geschosshöhe (Nettohöhe) als Menge im Mengensatz des IFC-Standards für Geschosse anzugeben."
+  for IfcBuildingStorey
+  require property Qto_BuildingStoreyBaseQuantities.NetHeigtht
+
+rule R3 "Fire rating of doors"
+  source "Türen müssen eine Feuerwiderstandsklasse haben. Sie besteht aus den Buchstaben T oder EI, gefolgt von zwei oder drei Ziffern, zum Beispiel T30 oder EI120."
+  for IfcDoor
+  require property Pset_DoorCommon.FireRating matches "(T|EI)[0-9]{2,3}"
+
+rule R4 "Height of doors"
+  source "Türen müssen mindestens 2,10 m hoch sein (Gesamthöhe der Tür)."
+  for IfcDoor
+  require attribute OverallHeight >= 2.1 m
+
+rule R5 "U-value of external walls"
+  source "Außenwände dürfen einen Wärmedurchgangskoeffizienten von höchstens 0,24 W/(m²K) haben."
+  for IfcWall
+  where property Pset_WallCommon.IsExternal = true
+  require property Pset_WallCommon.ThermalTransmittance <= 0.24 W/m2K
+
+rule R6 "Status of walls"
+  source "Der Status aller Wände ist anzugeben. Zulässig sind nur „neu“ und „Bestand“."
+  for IfcWall
+  require property Pset_WallCommon.Status in ["NEW", "EXISTING"]
+
+rule R7 "Sound insulation class of walls"
+  source "Für Wände ist die Schallschutzklasse nach DIN 4109 im Merkmalsatz des Auftraggebers „AG_Wand“ als Merkmal „Schallschutzklasse“ anzugeben. Zulässig sind SSK1, SSK2 und SSK3."
+  for IfcWall
+  require property AG_Wand.Schallschutzklasse in ["SSK1", "SSK2", "SSK3"]
+
+rule R8 "Base slabs are load-bearing"
+  source "Bodenplatten (Fundamentplatten) müssen als tragend gekennzeichnet sein."
+  for IfcSlab type BASESLAB
+  require property Pset_SlabCommon.LoadBearing = true
+
+rule R9 "Net floor area of spaces"
+  source "Räume müssen eine Nettogrundfläche größer als 0 m² haben."
+  for IfcSpace
+  require property Qto_SpaceBaseQuantities.NetFloorArea > 0 m2
+
+# 10: a sum over the spaces of a storey cannot be expressed in IDS.
+
+rule R11 "No proxies"
+  source "Platzhalterobjekte (Proxies) sind im Modell nicht zulässig."
+  for IfcBuildingElementProxy
+  require count = 0
+
+rule R12 "Material of load-bearing columns"
+  source "Tragende Stützen müssen aus Stahlbeton oder Stahl bestehen (Materialname „Stahlbeton“ oder „Stahl“)."
+  for IfcColumn
+  where property Pset_ColumnCommon.LoadBearing = true
+  require material in ["Stahlbeton", "Stahl"]

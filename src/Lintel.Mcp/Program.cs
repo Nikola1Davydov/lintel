@@ -24,10 +24,11 @@ public static class Program
             return args[0] is "--help" or "-h" or "--version" ? 0 : 2;
         }
 
-        var builder = Host.CreateApplicationBuilder(args);
+        // An empty builder: the server is started in the folder of someone's project and must not pick up
+        // the settings files that lie there.
+        var builder = Host.CreateEmptyApplicationBuilder(settings: null);
 
         // Standard output belongs to the protocol: every log line goes to standard error.
-        builder.Logging.ClearProviders();
         builder.Logging.AddConsole(options => options.LogToStandardErrorThreshold = LogLevel.Trace);
         builder.Logging.SetMinimumLevel(LogLevel.Warning);
 

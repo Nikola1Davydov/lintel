@@ -1,0 +1,63 @@
+ifc IFC4
+
+rule R01 "Geschosse sind benannt, mindestens ein Geschoss"
+  source "Alle Geschosse des Modells müssen benannt sein. Das Modell muss mindestens ein Geschoss enthalten."
+  for IfcBuildingStorey
+  require count >= 1
+  require attribute Name
+
+rule R02 "Lichte Geschosshöhe der Geschosse"
+  source "Für jedes Geschoss ist die lichte Geschosshöhe (Nettohöhe) als Menge im Mengensatz des IFC-Standards für Geschosse anzugeben."
+  for IfcBuildingStorey
+  require property Qto_BuildingStoreyBaseQuantities.NetHeigtht
+
+rule R03 "Feuerwiderstandsklasse der Türen"
+  source "Türen müssen eine Feuerwiderstandsklasse haben. Sie besteht aus den Buchstaben T oder EI, gefolgt von zwei oder drei Ziffern, zum Beispiel T30 oder EI120."
+  for IfcDoor
+  require property Pset_DoorCommon.FireRating matches "(T|EI)[0-9]{2,3}" note "T oder EI, dann zwei oder drei Ziffern"
+
+rule R04 "Türhöhe mindestens 2,10 m"
+  source "Türen müssen mindestens 2,10 m hoch sein (Gesamthöhe der Tür)."
+  for IfcDoor
+  require attribute OverallHeight >= 2.10 m
+
+rule R05 "U-Wert der Außenwände"
+  source "Außenwände dürfen einen Wärmedurchgangskoeffizienten von höchstens 0,24 W/(m²K) haben."
+  for IfcWall
+  where property Pset_WallCommon.IsExternal = true
+  require property Pset_WallCommon.ThermalTransmittance <= 0.24 W/m2K
+
+rule R06 "Status der Wände"
+  source "Der Status aller Wände ist anzugeben. Zulässig sind nur „neu“ und „Bestand“."
+  for IfcWall
+  require property Pset_WallCommon.Status in ["NEW", "EXISTING"] note "neu = NEW, Bestand = EXISTING"
+
+rule R07 "Schallschutzklasse der Wände"
+  source "Für Wände ist die Schallschutzklasse nach DIN 4109 im Merkmalsatz des Auftraggebers „AG_Wand“ als Merkmal „Schallschutzklasse“ anzugeben. Zulässig sind SSK1, SSK2 und SSK3."
+  for IfcWall
+  require property AG_Wand.Schallschutzklasse in ["SSK1", "SSK2", "SSK3"]
+
+rule R08 "Bodenplatten sind tragend"
+  source "Bodenplatten (Fundamentplatten) müssen als tragend gekennzeichnet sein."
+  for IfcSlab type BASESLAB
+  require property Pset_SlabCommon.LoadBearing = true
+
+rule R09 "Nettogrundfläche der Räume größer 0"
+  source "Räume müssen eine Nettogrundfläche größer als 0 m² haben."
+  for IfcSpace
+  require property Qto_SpaceBaseQuantities.NetFloorArea > 0 m2
+
+# Anforderung 10 ("Die Summe der Nettogrundflächen aller Räume eines Geschosses darf die
+# Bruttogrundfläche des Geschosses nicht überschreiten.") ist nicht übernommen: eine Summe über
+# mehrere Elemente und der Vergleich zweier Werte sind in IDS nicht ausdrückbar.
+
+rule R11 "Keine Platzhalterobjekte"
+  source "Platzhalterobjekte (Proxies) sind im Modell nicht zulässig."
+  for IfcBuildingElementProxy
+  require count = 0
+
+rule R12 "Material tragender Stützen"
+  source "Tragende Stützen müssen aus Stahlbeton oder Stahl bestehen (Materialname „Stahlbeton“ oder „Stahl“)."
+  for IfcColumn
+  where property Pset_ColumnCommon.LoadBearing = true
+  require material in ["Stahlbeton", "Stahl"]

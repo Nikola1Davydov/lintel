@@ -1,0 +1,21 @@
+{"time": 1795387178.9, "tool": "lintel_language_guide", "arguments": "{}", "refused": false, "characters": 8075}
+{"time": 1795387187.1, "tool": "lintel_list_properties", "arguments": "{\"class\": \"IfcBuildingStorey\", \"ifc\": \"IFC4\"}", "refused": false, "characters": 1340}
+{"time": 1795387189.3, "tool": "lintel_list_properties", "arguments": "{\"propertySet\": \"Pset_BuildingStoreyCommon\", \"ifc\": \"IFC4\"}", "refused": false, "characters": 748}
+{"time": 1795387191.5, "tool": "lintel_list_properties", "arguments": "{\"propertySet\": \"Qto_BuildingStoreyBaseQuantities\", \"ifc\": \"IFC4\"}", "refused": false, "characters": 779}
+{"time": 1795387193.7, "tool": "lintel_list_properties", "arguments": "{\"class\": \"IfcDoor\", \"ifc\": \"IFC4\"}", "refused": false, "characters": 1732}
+{"time": 1795387195.9, "tool": "lintel_list_properties", "arguments": "{\"search\": \"fire\", \"ifc\": \"IFC4\"}", "refused": false, "characters": 6174}
+{"time": 1795387197.9, "tool": "lintel_list_properties", "arguments": "{\"propertySet\": \"Pset_DoorCommon\", \"ifc\": \"IFC4\"}", "refused": false, "characters": 1303}
+{"time": 1795387200.3, "tool": "lintel_list_properties", "arguments": "{\"class\": \"IfcWall\", \"ifc\": \"IFC4\"}", "refused": false, "characters": 1502}
+{"time": 1795387202.5, "tool": "lintel_list_properties", "arguments": "{\"propertySet\": \"Pset_WallCommon\", \"ifc\": \"IFC4\"}", "refused": false, "characters": 803}
+{"time": 1795387204.7, "tool": "lintel_list_properties", "arguments": "{\"class\": \"IfcSlab\", \"ifc\": \"IFC4\"}", "refused": false, "characters": 1840}
+{"time": 1795387207.0, "tool": "lintel_list_properties", "arguments": "{\"propertySet\": \"Pset_SlabCommon\", \"ifc\": \"IFC4\"}", "refused": false, "characters": 825}
+{"time": 1795387209.1, "tool": "lintel_list_properties", "arguments": "{\"class\": \"IfcSpace\", \"ifc\": \"IFC4\"}", "refused": false, "characters": 4013}
+{"time": 1795387211.2, "tool": "lintel_list_properties", "arguments": "{\"propertySet\": \"Qto_SpaceBaseQuantities\", \"ifc\": \"IFC4\"}", "refused": false, "characters": 1257}
+{"time": 1795387213.6, "tool": "lintel_list_properties", "arguments": "{\"class\": \"IfcColumn\", \"ifc\": \"IFC4\"}", "refused": false, "characters": 1393}
+{"time": 1795387216.1, "tool": "lintel_list_properties", "arguments": "{\"propertySet\": \"Qto_BuildingStoreyBaseQuantities\", \"ifc\": \"IFC4\"}", "refused": false, "characters": 779}
+{"time": 1795387235.9, "tool": "lintel_list_properties", "arguments": "{\"class\": \"IfcProxy\", \"ifc\": \"IFC4\"}", "refused": false, "characters": 298}
+{"time": 1795387238.2, "tool": "lintel_list_properties", "arguments": "{\"class\": \"IfcBuildingElementProxy\", \"ifc\": \"IFC4\"}", "refused": false, "characters": 1235}
+{"time": 1795387240.3, "tool": "lintel_list_properties", "arguments": "{\"search\": \"Schallschutz\", \"ifc\": \"IFC4\"}", "refused": false, "characters": 297}
+{"time": 1795387242.8, "tool": "lintel_list_properties", "arguments": "{\"class\": \"IfcColumn\", \"propertySet\": \"Pset_ColumnCommon\", \"ifc\": \"IFC4\"}", "refused": false, "characters": 682}
+{"time": 1795387265.0, "tool": "lintel_validate_rules", "arguments": "{\"path\": \"rules.lintel\"}", "refused": false, "characters": 69}
+{"time": 1795387270.4, "tool": "lintel_compile_rules", "arguments": "{\"path\": \"rules.lintel\", \"outputPath\": \"rules.ids\"}", "refused": false, "characters": 146}

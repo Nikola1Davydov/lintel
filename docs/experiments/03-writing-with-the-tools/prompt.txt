@@ -1,0 +1,71 @@
+You are the subject of a usability test of a tool server for AI agents. The question of the test is whether an agent can do the task below with nothing but the tools of the server, so follow these conditions exactly.
+
+Conditions
+- Work only in the folder <folder> (it exists and is empty). Create files only there.
+- The server is an MCP server. In this test you call its tools with a shell command, from inside that folder:
+    cd <folder> && ../lt <tool name> '<arguments as one JSON object>'
+  for example:  cd <folder> && ../lt lintel_language_guide '{}'
+  The command prints the answer of the tool. Relative paths in the arguments start at <folder>.
+- Use no other source: do not read any other file or folder on this machine (in particular nothing under /home/user and nothing else under the folder above yours), do not search the web, and do not use any other tool server. Your own knowledge of IFC is allowed, but the instructions of the server tell you how to treat it.
+- Do not ask questions; decide yourself and note your decision in the report.
+
+What an MCP client would show you about the server
+-----
+Server instructions:
+Lintel is a small language for information requirements on IFC building models. It compiles to buildingSMART IDS 1.0. To turn requirements into rules: 1. Read lintel_language_guide once. 2. Look up the names of property sets, properties, attributes and predefined types with lintel_list_properties; do not write them from memory. 3. Write one rule for each requirement, with its original wording in 'source'. 4. Check with lintel_validate_rules until it reports nothing; when the answer has 'fixed', continue with that text. 5. Write the IDS file with lintel_compile_rules. lintel_import_ids turns an existing IDS file into Lintel. A person reviews and signs the rules: leave out what IDS cannot express and say so in a comment, never approximate it.
+
+Tool: lintel_language_guide
+Returns the Lintel language on one page: the shape of a rule file, 'for' and the facets, the constraints, require / optional / prohibit, the mistakes that authors make, and examples. Read it once before you write or change Lintel rules.
+
+Tool: lintel_validate_rules
+Checks Lintel rules and changes nothing: the grammar, the rules of IDS, and every IFC class, predefined type, attribute, property set, property, data type and unit against the IFC version that the file names. Call it after every change. Give the rules as text in 'source', or the path of a .lintel file in 'path'. Returns JSON: 'ok' is true when there are no errors; 'diagnostics' holds each problem with severity, code, message, line, column, hint, the expected values and a fix. When the answer has 'fixed', that is the whole source with every fix applied: continue with it; when 'fixedOk' is true it has no errors left. A warning is valid IDS that probably says something else than you mean: repair warnings too.
+  - source (string): The rules as text. Give this or 'path'.
+  - path (string): The path of a .lintel file to check, full or relative to the project folder. Give this or 'source'.
+
+Tool: lintel_compile_rules
+Compiles Lintel rules to a buildingSMART IDS 1.0 file. Give the rules as text in 'source', or the path of a .lintel file in 'path'. With 'outputPath' the IDS is written to that .ids file and the answer is a short summary; without it the answer is the IDS text. Nothing is written when the rules have errors, or warnings that have a ready fix: the answer is then the JSON of lintel_validate_rules, with the repaired source in 'fixed'. Pass acceptWarnings: true to compile rules with such warnings as they are written.
+  - source (string): The rules as text. Give this or 'path'.
+  - path (string): The path of a .lintel file to compile, full or relative to the project folder. Give this or 'source'.
+  - outputPath (string): Where to write the IDS file; the name ends with .ids. Without it the IDS text is returned.
+  - overwrite (boolean, default false): Replace the file at 'outputPath' when it exists.
+  - acceptWarnings (boolean, default false): Compile although a warning has a ready fix.
+
+Tool: lintel_import_ids
+Turns a buildingSMART IDS 1.0 file into Lintel rules, to read, review or change an existing IDS file. Give the IDS as text in 'ids', or the path of an .ids file in 'path'. The answer is the Lintel source, and a note for whatever the file contains that Lintel does not keep; without a note the rules compile back to the same IDS. With 'outputPath' the source is written to that .lintel file.
+  - ids (string): The IDS file as text. Give this or 'path'.
+  - path (string): The path of an .ids file to read, full or relative to the project folder. Give this or 'ids'.
+  - outputPath (string): Where to write the Lintel source; the name ends with .lintel. Without it the source is returned.
+  - overwrite (boolean, default false): Replace the file at 'outputPath' when it exists.
+
+Tool: lintel_list_properties
+Looks up the IFC schema, so that rules use names that exist: the property sets and properties of the IFC standard with their data types, units and allowed values, and the attributes, predefined types and subtypes of a class. Give 'class' (IfcDoor) for an overview of the class and its property sets; add 'search' (fire) to find properties by a part of their name; give 'propertySet' (Pset_DoorCommon) for every property of one set. The names are English, as in IFC. A property that the standard does not have belongs to a property set of your own, whose name does not start with Pset_ or Qto_.
+  - class (string): An IFC class, such as IfcDoor: its attributes, predefined types, subtypes and property sets.
+  - propertySet (string): A property set of the standard, such as Pset_DoorCommon: every property with its data type.
+  - search (string): Words that the name of the set or the property contains, such as 'fire' or 'load bearing'.
+  - ifc (string, default "IFC4"): The IFC version of the rule file: IFC2X3, IFC4 or IFC4X3_ADD2.
+  - limit (integer, default 60): The most lines to return, 1 to 200.
+  - offset (integer, default 0): The number of lines to skip, for the next page.
+-----
+
+Task
+Turn the following requirements into Lintel rules for IFC4. Save the rules as <folder>/rules.lintel, and produce <folder>/rules.ids with the server. Work the way the server instructions say.
+
+Auszug aus den Auftraggeber-Informationsanforderungen (AIA), Leistungsphase 5. Das Modell wird als IFC4 geliefert.
+
+1. Alle Geschosse des Modells müssen benannt sein. Das Modell muss mindestens ein Geschoss enthalten.
+2. Für jedes Geschoss ist die lichte Geschosshöhe (Nettohöhe) als Menge im Mengensatz des IFC-Standards für Geschosse anzugeben.
+3. Türen müssen eine Feuerwiderstandsklasse haben. Sie besteht aus den Buchstaben T oder EI, gefolgt von zwei oder drei Ziffern, zum Beispiel T30 oder EI120.
+4. Türen müssen mindestens 2,10 m hoch sein (Gesamthöhe der Tür).
+5. Außenwände dürfen einen Wärmedurchgangskoeffizienten von höchstens 0,24 W/(m²K) haben.
+6. Der Status aller Wände ist anzugeben. Zulässig sind nur „neu“ und „Bestand“.
+7. Für Wände ist die Schallschutzklasse nach DIN 4109 im Merkmalsatz des Auftraggebers „AG_Wand“ als Merkmal „Schallschutzklasse“ anzugeben. Zulässig sind SSK1, SSK2 und SSK3.
+8. Bodenplatten (Fundamentplatten) müssen als tragend gekennzeichnet sein.
+9. Räume müssen eine Nettogrundfläche größer als 0 m² haben.
+10. Die Summe der Nettogrundflächen aller Räume eines Geschosses darf die Bruttogrundfläche des Geschosses nicht überschreiten.
+11. Platzhalterobjekte (Proxies) sind im Modell nicht zulässig.
+12. Tragende Stützen müssen aus Stahlbeton oder Stahl bestehen (Materialname „Stahlbeton“ oder „Stahl“).
+
+Report (your final message, plain text, short)
+1. For each requirement number 1 to 12: the identifier of the rule that covers it, or "not expressible" with a few words why.
+2. Everything in the descriptions or answers of the tools that was unclear, misleading, missing or wrong, and every place where you had to guess. Be specific; this is the main result of the test.
+3. Whether the final lintel_validate_rules answer had any diagnostics, and whether rules.ids was written.

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using Lintel.Analysis;
 using Lintel.Ifc;
+using Lintel.Syntax;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
@@ -18,6 +19,11 @@ public sealed class SchemaTools
 
     /// <summary>A property set made for at most this many classes counts as made for those classes, not for elements in general.</summary>
     private const int SpecificSetClasses = 24;
+
+    /// <summary>A page of at most this many properties also says what each one means.</summary>
+    private const int MaxLinesWithMeaning = 25;
+
+    private const int MaxMeaningCharacters = 160;
 
     [McpServerTool(Name = "lintel_list_properties", Title = "Look up the IFC schema", ReadOnly = true, Idempotent = true, Destructive = false, OpenWorld = false)]
     [Description(
@@ -166,9 +172,21 @@ public sealed class SchemaTools
         if (specific.Count > 0)
         {
             text.Append($"Property sets of the standard made for {subject} ({specific.Count}), with their properties:\n");
+            var marked = false;
             foreach (var set in specific.Skip(offset).Take(limit))
             {
-                text.Append("  ").Append(set.Name).Append(": ").Append(string.Join(", ", set.PropertyNames)).Append('\n');
+                var names = set.PropertyNames.Select(property =>
+                {
+                    var odd = OtherSpelling(schema, set, property) is not null;
+                    marked |= odd;
+                    return odd ? property + " (sic)" : property;
+                });
+                text.Append("  ").Append(set.Name).Append(": ").Append(string.Join(", ", names)).Append('\n');
+            }
+
+            if (marked)
+            {
+                text.Append("(sic): the standard writes this name exactly so in this version, and differently in another; write it as it stands.\n");
             }
 
             text.Append(Page(specific.Count, limit, offset, "sets"));
@@ -180,7 +198,7 @@ public sealed class SchemaTools
             text.Append(string.Join(", ", general.Select(s => $"{s.Name} ({s.PropertyNames.Count})"))).Append(".\n");
         }
 
-        text.Append("For data types, units and allowed values give 'propertySet', or 'search' with a part of a name.\n");
+        text.Append("For data types, units, allowed values and what a property means give 'propertySet', or 'search' with a part of a name.\n");
         return text.ToString();
     }
 
@@ -222,13 +240,8 @@ public sealed class SchemaTools
             text.Append($"It is NOT made for {ifcClass.Name}: a rule 'for {ifcClass.Name}' that requires it is rejected. The sets for {ifcClass.Name}: {string.Join(", ", own)}.\n");
         }
 
-        var lines = set.PropertyNames.Select(property => Line(set, set.FindProperty(property)!)).ToList();
-        foreach (var line in lines.Skip(offset).Take(limit))
-        {
-            text.Append(line).Append('\n');
-        }
-
-        text.Append(Page(lines.Count, limit, offset, "properties"));
+        var hits = set.PropertyNames.Select(property => new Hit(set, set.FindProperty(property)!, false)).ToList();
+        AppendLines(text, schema, hits, limit, offset);
         return text.ToString();
     }
 
@@ -242,13 +255,31 @@ public sealed class SchemaTools
             throw new ToolProblem("The search text is empty. Give a part of a name, such as 'fire'.");
         }
 
-        bool Matches(string text) => words.All(w => text.IndexOf(w, StringComparison.OrdinalIgnoreCase) >= 0);
+        // The names of the standard have slips of the pen, such as NetHeigtht for the net height of a storey.
+        // A word that is one letter away from a word of the name finds it too; such a line says so.
+        List<Hit> Find(IEnumerable<IfcPropertySet> sets)
+        {
+            var exact = new List<Hit>();
+            var near = new List<Hit>();
+            foreach (var set in sets)
+            {
+                foreach (var property in set.PropertyNames)
+                {
+                    var name = set.Name + "." + property;
+                    if (words.All(w => name.IndexOf(w, StringComparison.OrdinalIgnoreCase) >= 0))
+                    {
+                        exact.Add(new Hit(set, set.FindProperty(property)!, false));
+                    }
+                    else if (words.All(w => name.IndexOf(w, StringComparison.OrdinalIgnoreCase) >= 0 || IsNearWordOf(w, name)))
+                    {
+                        near.Add(new Hit(set, set.FindProperty(property)!, true));
+                    }
+                }
+            }
 
-        List<string> Find(IEnumerable<IfcPropertySet> sets) => sets
-            .SelectMany(set => set.PropertyNames
-                .Where(property => Matches(set.Name + "." + property))
-                .Select(property => Line(set, set.FindProperty(property)!)))
-            .ToList();
+            exact.AddRange(near);
+            return exact;
+        }
 
         var all = schema.PropertySetNames.Select(name => schema.FindPropertySet(name)!).ToList();
         var text = new StringBuilder();
@@ -261,12 +292,7 @@ public sealed class SchemaTools
             }
 
             text.Append($"Properties of the standard in {schema.Version} that match '{search}' ({found.Count}). Give 'class' to see only those of one class.\n");
-            foreach (var line in found.Skip(offset).Take(limit))
-            {
-                text.Append(line).Append('\n');
-            }
-
-            text.Append(Page(found.Count, limit, offset, "properties"));
+            AppendLines(text, schema, found, limit, offset);
             return text.ToString();
         }
 
@@ -283,31 +309,168 @@ public sealed class SchemaTools
             }
 
             text.Append($"No property of the sets for {ifcClass.Name} in {schema.Version} matches '{search}'. Sets made for other classes have {elsewhere.Count}; they cannot be required for {ifcClass.Name}:\n");
-            foreach (var line in elsewhere.Take(Math.Min(limit, 12)))
+            foreach (var hit in elsewhere.Take(Math.Min(limit, 12)))
             {
-                text.Append(line).Append('\n');
+                text.Append(Line(hit.Set, hit.Property)).Append('\n');
             }
 
-            text.Append($"For {ifcClass.Name}, use a property set of your own, whose name does not start with Pset_ or Qto_.\n");
+            text.Append($"For {ifcClass.Name}, use a property set of your own, whose name does not start with Pset_ or Qto_; such a set needs no lookup.\n");
             return text.ToString();
         }
 
         text.Append($"Properties for {ifcClass.Name} in {schema.Version} that match '{search}' ({matches.Count}):\n");
-        foreach (var line in matches.Skip(offset).Take(limit))
+        AppendLines(text, schema, matches, limit, offset);
+        return text.ToString();
+    }
+
+    /// <summary>True when the word is one letter away from one of the words that the name is made of.</summary>
+    private static bool IsNearWordOf(string word, string name)
+    {
+        if (word.Length < 5)
         {
-            text.Append(line).Append('\n');
+            return false;
         }
 
-        text.Append(Page(matches.Count, limit, offset, "properties"));
-        return text.ToString();
+        var lower = word.ToLowerInvariant();
+        return WordsOf(name).Any(part => Math.Abs(part.Length - lower.Length) <= 1 && EditDistance.Of(part, lower) <= 1);
+    }
+
+    /// <summary>The words of a name such as Qto_SpaceBaseQuantities.NetFloorArea, in lower case.</summary>
+    private static IEnumerable<string> WordsOf(string name)
+    {
+        var word = new StringBuilder();
+        foreach (var c in name)
+        {
+            if (!char.IsLetter(c) || (char.IsUpper(c) && word.Length > 0 && char.IsLower(word[word.Length - 1])))
+            {
+                if (word.Length > 0)
+                {
+                    yield return word.ToString().ToLowerInvariant();
+                    word.Clear();
+                }
+            }
+
+            if (char.IsLetter(c))
+            {
+                word.Append(c);
+            }
+        }
+
+        if (word.Length > 0)
+        {
+            yield return word.ToString().ToLowerInvariant();
+        }
     }
 
     private static string NothingFound(string search, string where) =>
         $"No property of the standard matches '{search}' {where}. The names are English and written without spaces, "
         + "such as FireRating or LoadBearing: try another word or a shorter part. "
-        + "What the standard does not have goes into a property set of your own, whose name does not start with Pset_ or Qto_.\n";
+        + "What the standard does not have goes into a property set of your own, whose name does not start with Pset_ or Qto_; "
+        + "such a set needs no lookup.\n";
 
     // ---------------------------------------------------------------- lines
+
+    /// <summary>A property that a lookup found; <see cref="Near"/> when only a similar spelling found it.</summary>
+    private sealed class Hit
+    {
+        public Hit(IfcPropertySet set, IfcProperty property, bool near)
+        {
+            Set = set;
+            Property = property;
+            Near = near;
+        }
+
+        public IfcPropertySet Set { get; }
+
+        public IfcProperty Property { get; }
+
+        public bool Near { get; }
+    }
+
+    /// <summary>
+    /// One page of properties, a line each: the name as a rule writes it, the data type and the way its value is
+    /// written, a remark when the standard spells the name oddly, and on a short page what the property means.
+    /// </summary>
+    private static void AppendLines(StringBuilder text, IfcSchema schema, IReadOnlyList<Hit> hits, int limit, int offset)
+    {
+        var page = hits.Skip(offset).Take(limit).ToList();
+        var withMeaning = page.Count <= MaxLinesWithMeaning;
+        foreach (var hit in page)
+        {
+            text.Append(Line(hit.Set, hit.Property));
+            if (OtherSpelling(schema, hit.Set, hit.Property.Name) is { } other)
+            {
+                text.Append($". Written exactly so in {schema.Version} ({other})");
+            }
+            else if (hit.Near)
+            {
+                text.Append(". Found by a similar spelling");
+            }
+
+            if (withMeaning && Meaning(hit.Property) is { Length: > 0 } meaning)
+            {
+                text.Append(". Meaning: ").Append(meaning);
+            }
+
+            text.Append('\n');
+        }
+
+        if (!withMeaning && page.Any(h => h.Property.Definition.Length > 0))
+        {
+            text.Append("Narrow the search, or give 'propertySet', to see what each property means.\n");
+        }
+
+        text.Append(Page(hits.Count, limit, offset, "properties"));
+    }
+
+    /// <summary>
+    /// The standard has slips of the pen that a later version repairs, such as NetHeigtht for the net height of a
+    /// storey in IFC4. When another version has the same set with a name that differs by a letter or two, this
+    /// names that version and its spelling; an author who knows the other spelling then trusts the odd one.
+    /// </summary>
+    private static string? OtherSpelling(IfcSchema schema, IfcPropertySet set, string property)
+    {
+        if (property.Length < 5)
+        {
+            return null;
+        }
+
+        var lower = property.ToLowerInvariant();
+        foreach (var version in new[] { "IFC2X3", "IFC4", "IFC4X3_ADD2" }.Where(v => v != schema.Version))
+        {
+            var other = IfcSchema.Get(version)?.FindPropertySet(set.Name);
+            if (other is null || other.FindProperty(property) is not null)
+            {
+                continue;
+            }
+
+            var twin = other.PropertyNames.FirstOrDefault(name =>
+                Math.Abs(name.Length - property.Length) <= 2
+                && set.FindProperty(name) is null
+                && EditDistance.Of(name.ToLowerInvariant(), lower) <= 2);
+            if (twin is not null)
+            {
+                return $"{version}: {twin}";
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>What a property means: the first sentence of its definition in the standard, on one line.</summary>
+    private static string Meaning(IfcProperty property)
+    {
+        var words = property.Definition.Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        var line = string.Join(" ", words);
+        var end = line.IndexOf(". ", StringComparison.Ordinal);
+        if (end >= 20)
+        {
+            line = line.Substring(0, end);
+        }
+
+        line = line.TrimEnd('.');
+        return line.Length <= MaxMeaningCharacters ? line : line.Substring(0, MaxMeaningCharacters).TrimEnd() + "...";
+    }
 
     /// <summary>One property as it is written in a rule, with its data type and the way its value is written.</summary>
     private static string Line(IfcPropertySet set, IfcProperty property)
@@ -334,6 +497,12 @@ public sealed class SchemaTools
         if (units.Count > 0)
         {
             return "a number with its unit: " + string.Join(", ", units);
+        }
+
+        // IDS takes a logical value as text and does not say how its three values are spelled.
+        if (type.Name == "IfcLogical")
+        {
+            return "true, false or unknown, which IDS compares as text without fixing the spelling: require it without a value";
         }
 
         return type.XmlBase switch

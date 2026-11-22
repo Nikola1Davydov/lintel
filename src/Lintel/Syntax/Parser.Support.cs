@@ -485,7 +485,8 @@ public static class Relations
     };
 }
 
-internal static class EditDistance
+/// <summary>How far two words are apart: the number of single letters to add, drop or change to turn one into the other.</summary>
+public static class EditDistance
 {
     public static int Of(string a, string b)
     {

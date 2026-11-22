@@ -273,6 +273,13 @@ public class EmitterTests
             var code = Regex.Match(File.ReadAllText(path), "```[a-z]*\n(.*?)```", RegexOptions.Singleline).Groups[1].Value;
             yield return new object[] { Path.GetFileName(path), code };
         }
+
+        // The rule files that language models wrote with the tools in experiment 3, and the reference solution.
+        var third = Path.Combine(root, "docs", "experiments", "03-writing-with-the-tools");
+        foreach (var path in Directory.GetFiles(third, "*.lintel", SearchOption.AllDirectories))
+        {
+            yield return new object[] { "experiment 3, " + Path.GetFileName(path), File.ReadAllText(path) };
+        }
     }
 
     [Theory]

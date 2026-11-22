@@ -1,0 +1,15 @@
+{"time": 1795387178.3, "tool": "lintel_language_guide", "arguments": "{}", "refused": false, "characters": 8075}
+{"time": 1795387184.2, "tool": "lintel_list_properties", "arguments": "{\"class\": \"IfcBuildingStorey\"}", "refused": false, "characters": 1340}
+{"time": 1795387186.3, "tool": "lintel_list_properties", "arguments": "{\"propertySet\": \"Qto_BuildingStoreyBaseQuantities\"}", "refused": false, "characters": 779}
+{"time": 1795387188.8, "tool": "lintel_list_properties", "arguments": "{\"class\": \"IfcDoor\", \"search\": \"fire\"}", "refused": false, "characters": 159}
+{"time": 1795387191.1, "tool": "lintel_list_properties", "arguments": "{\"class\": \"IfcDoor\"}", "refused": false, "characters": 1732}
+{"time": 1795387198.3, "tool": "lintel_list_properties", "arguments": "{\"propertySet\": \"Pset_WallCommon\"}", "refused": false, "characters": 803}
+{"time": 1795387200.8, "tool": "lintel_list_properties", "arguments": "{\"class\": \"IfcSlab\"}", "refused": false, "characters": 1840}
+{"time": 1795387203.0, "tool": "lintel_list_properties", "arguments": "{\"propertySet\": \"Qto_SpaceBaseQuantities\"}", "refused": false, "characters": 1257}
+{"time": 1795387205.2, "tool": "lintel_list_properties", "arguments": "{\"class\": \"IfcColumn\"}", "refused": false, "characters": 1393}
+{"time": 1795387207.3, "tool": "lintel_list_properties", "arguments": "{\"propertySet\": \"Pset_SlabCommon\"}", "refused": false, "characters": 825}
+{"time": 1795387226.4, "tool": "lintel_validate_rules", "arguments": "{\"path\": \"rules.lintel\"}", "refused": false, "characters": 69}
+{"time": 1795387233.3, "tool": "lintel_validate_rules", "arguments": "{\"source\": \"ifc IFC4\\nrule X \\\"x\\\"\\n  for IfcBuildingStorey\\n  require property Qto_BuildingStoreyBaseQuantities.NetHeight\\n\"}", "refused": false, "characters": 907}
+{"time": 1795387235.6, "tool": "lintel_list_properties", "arguments": "{\"search\": \"NetHeight\", \"ifc\": \"IFC4X3_ADD2\"}", "refused": false, "characters": 211}
+{"time": 1795387238.4, "tool": "lintel_compile_rules", "arguments": "{\"path\": \"rules.lintel\"}", "refused": false, "characters": 11571}
+{"time": 1795387245.9, "tool": "lintel_compile_rules", "arguments": "{\"path\": \"rules.lintel\", \"outputPath\": \"rules.ids\"}", "refused": false, "characters": 146}

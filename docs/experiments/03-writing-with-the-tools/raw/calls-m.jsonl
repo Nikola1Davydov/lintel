@@ -1,0 +1,16 @@
+{"time": 1795387177.2, "tool": "lintel_language_guide", "arguments": "{}", "refused": false, "characters": 8075}
+{"time": 1795387182.2, "tool": "lintel_list_properties", "arguments": "{\"class\": \"IfcBuildingStorey\"}", "refused": false, "characters": 1340}
+{"time": 1795387184.7, "tool": "lintel_list_properties", "arguments": "{\"propertySet\": \"Qto_BuildingStoreyBaseQuantities\"}", "refused": false, "characters": 779}
+{"time": 1795387187.0, "tool": "lintel_list_properties", "arguments": "{\"class\": \"IfcDoor\"}", "refused": false, "characters": 1732}
+{"time": 1795387189.4, "tool": "lintel_list_properties", "arguments": "{\"propertySet\": \"Pset_DoorCommon\"}", "refused": false, "characters": 1303}
+{"time": 1795387191.8, "tool": "lintel_list_properties", "arguments": "{\"propertySet\": \"Pset_WallCommon\"}", "refused": false, "characters": 803}
+{"time": 1795387194.1, "tool": "lintel_list_properties", "arguments": "{\"class\": \"IfcWall\"}", "refused": false, "characters": 1502}
+{"time": 1795387196.6, "tool": "lintel_list_properties", "arguments": "{\"class\": \"IfcSlab\"}", "refused": false, "characters": 1840}
+{"time": 1795387198.9, "tool": "lintel_list_properties", "arguments": "{\"propertySet\": \"Pset_SlabCommon\"}", "refused": false, "characters": 825}
+{"time": 1795387201.0, "tool": "lintel_list_properties", "arguments": "{\"propertySet\": \"Qto_SpaceBaseQuantities\"}", "refused": false, "characters": 1257}
+{"time": 1795387203.2, "tool": "lintel_list_properties", "arguments": "{\"class\": \"IfcColumn\"}", "refused": false, "characters": 1393}
+{"time": 1795387205.4, "tool": "lintel_list_properties", "arguments": "{\"propertySet\": \"Pset_ColumnCommon\"}", "refused": false, "characters": 682}
+{"time": 1795387207.8, "tool": "lintel_list_properties", "arguments": "{\"class\": \"IfcSpace\"}", "refused": false, "characters": 4013}
+{"time": 1795387220.6, "tool": "lintel_validate_rules", "arguments": "{\"path\": \"rules.lintel\"}", "refused": false, "characters": 3504}
+{"time": 1795387228.9, "tool": "lintel_validate_rules", "arguments": "{\"path\": \"rules.lintel\"}", "refused": false, "characters": 69}
+{"time": 1795387231.5, "tool": "lintel_compile_rules", "arguments": "{\"path\": \"rules.lintel\", \"outputPath\": \"rules.ids\"}", "refused": false, "characters": 146}

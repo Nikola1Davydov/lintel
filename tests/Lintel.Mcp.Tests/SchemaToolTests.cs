@@ -56,14 +56,19 @@ public class SchemaToolTests
         var common = Describe(propertySet: "Pset_WallCommon");
 
         Assert.StartsWith("Pset_WallCommon in IFC4, made for IfcWall with subtypes and type objects.\n", common);
-        Assert.Contains("Pset_WallCommon.FireRating: IfcLabel, text in quotes\n", common);
-        Assert.Contains("Pset_WallCommon.LoadBearing: IfcBoolean, true or false\n", common);
-        Assert.Contains("Pset_WallCommon.ThermalTransmittance: IfcThermalTransmittanceMeasure, a number with its unit: W/m2K\n", common);
-        Assert.Contains("Pset_WallCommon.Status: IfcLabel, one of \"NEW\", \"EXISTING\", \"DEMOLISH\", \"TEMPORARY\", \"OTHER\", \"NOTKNOWN\", \"UNSET\"\n", common);
+        Assert.Contains("Pset_WallCommon.FireRating: IfcLabel, text in quotes. Meaning: Fire rating given according to the national fire safety classification", common);
+        Assert.Contains("Pset_WallCommon.LoadBearing: IfcBoolean, true or false. Meaning: ", common);
+        Assert.Contains("Pset_WallCommon.ThermalTransmittance: IfcThermalTransmittanceMeasure, a number with its unit: W/m2K. Meaning: ", common);
+        Assert.Contains("Pset_WallCommon.Status: IfcLabel, one of \"NEW\", \"EXISTING\", \"DEMOLISH\", \"TEMPORARY\", \"OTHER\", \"NOTKNOWN\", \"UNSET\". Meaning: ", common);
 
         var quantities = Describe(propertySet: "Qto_WallBaseQuantities");
-        Assert.Contains("Qto_WallBaseQuantities.Width: IfcLengthMeasure, a number with its unit: m, cm, mm\n", quantities);
-        Assert.Contains("Qto_WallBaseQuantities.NetVolume: IfcVolumeMeasure, a number with its unit: m3\n", quantities);
+        Assert.Contains("Qto_WallBaseQuantities.Width: IfcLengthMeasure, a number with its unit: m, cm, mm. Meaning: ", quantities);
+        Assert.Contains("Qto_WallBaseQuantities.NetVolume: IfcVolumeMeasure, a number with its unit: m3. Meaning: ", quantities);
+
+        // every property on one line, and no line too long to read
+        var lines = common.Split('\n').Where(l => l.StartsWith("Pset_WallCommon.")).ToList();
+        Assert.Equal(11, lines.Count);
+        Assert.All(lines, line => Assert.InRange(line.Length, 30, 420));
     }
 
     [Fact]
@@ -97,8 +102,8 @@ public class SchemaToolTests
     {
         var fire = Describe("IfcDoor", search: "fire");
         Assert.StartsWith("Properties for IfcDoor in IFC4 that match 'fire' (2):\n", fire);
-        Assert.Contains("Pset_DoorCommon.FireRating: IfcLabel, text in quotes\n", fire);
-        Assert.Contains("Pset_DoorCommon.FireExit: IfcBoolean, true or false\n", fire);
+        Assert.Contains("Pset_DoorCommon.FireRating: IfcLabel, text in quotes. Meaning: Fire rating for this object\n", fire);
+        Assert.Contains("Pset_DoorCommon.FireExit: IfcBoolean, true or false. Meaning: ", fire);
 
         // several words must all be found, in any case
         var bearing = Describe("IfcWall", search: "LOAD bearing");
@@ -109,6 +114,59 @@ public class SchemaToolTests
         var everywhere = Describe(search: "FireRating");
         Assert.Contains("Pset_WallCommon.FireRating", everywhere);
         Assert.Contains("Pset_DoorCommon.FireRating", everywhere);
+    }
+
+    [Fact]
+    public void A_search_finds_a_name_that_the_standard_misspells()
+    {
+        // The net height of a storey is 'NetHeigtht' in the IFC4 standard. An author looks for 'height'.
+        var height = Describe("IfcBuildingStorey", search: "net height");
+
+        Assert.Contains("Qto_BuildingStoreyBaseQuantities.NetHeigtht: IfcLengthMeasure", height);
+
+        // the odd name is no mistake of the tool: the line says where the other spelling is found
+        Assert.Contains("Written exactly so in IFC4 (IFC4X3_ADD2: NetHeight)", height);
+        Assert.Contains("Standard net height of this storey", height);
+
+        // the overview of the class marks the name too
+        var storey = Describe("IfcBuildingStorey");
+        Assert.Contains("NetHeigtht (sic)", storey);
+        Assert.Contains("(sic): the standard writes this name exactly so", storey);
+
+        // the same for a name that one version writes the American and the other the British way
+        Assert.Contains("GlassColor (sic)", Describe("IfcDoor"));
+        Assert.Contains("Written exactly so in IFC4 (IFC4X3_ADD2: GlassColour)", Describe(propertySet: "Pset_DoorWindowGlazingType"));
+        Assert.Contains("Written exactly so in IFC4X3_ADD2 (IFC2X3: GlassColor)", Describe(propertySet: "Pset_DoorWindowGlazingType", ifc: "IFC4X3_ADD2"));
+
+        // a set that every version spells the same has no such remark
+        Assert.DoesNotContain("Written exactly so", Describe(propertySet: "Pset_WallCommon"));
+
+        // a match by the letters comes first, and a short word finds nothing by accident
+        var any = Describe("IfcBuildingStorey", search: "height");
+        Assert.True(any.IndexOf("GrossHeight") < any.IndexOf("NetHeigtht"));
+        Assert.DoesNotContain("Written exactly so", Describe("IfcWall", search: "fire"));
+
+        // the version that spells it right says nothing about it in the overview of the other
+        Assert.Contains("NetHeight: IfcLengthMeasure", Describe("IfcBuildingStorey", search: "net height", ifc: "IFC4X3_ADD2"));
+    }
+
+    [Fact]
+    public void A_long_page_leaves_the_meanings_out()
+    {
+        var many = Describe(search: "fire");
+
+        Assert.DoesNotContain("Meaning: ", many);
+        Assert.Contains("Narrow the search, or give 'propertySet', to see what each property means.", many);
+    }
+
+    [Fact]
+    public void A_logical_value_is_not_called_true_or_false()
+    {
+        // IDS takes IfcLogical as text and does not say how its values are spelled.
+        var storey = Describe(propertySet: "Pset_BuildingStoreyCommon");
+
+        Assert.Contains("Pset_BuildingStoreyCommon.AboveGround: IfcLogical, true, false or unknown, which IDS compares as text", storey);
+        Assert.Contains("Pset_BuildingStoreyCommon.EntranceLevel: IfcBoolean, true or false.", storey);
     }
 
     [Fact]

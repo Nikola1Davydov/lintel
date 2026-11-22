@@ -1,0 +1,35 @@
+Server instructions:
+Lintel is a small language for information requirements on IFC building models. It compiles to buildingSMART IDS 1.0. To turn requirements into rules: 1. Read lintel_language_guide once. 2. Look up the names of property sets, properties, attributes and predefined types with lintel_list_properties; do not write them from memory. 3. Write one rule for each requirement, with its original wording in 'source'. 4. Check with lintel_validate_rules until it reports nothing; when the answer has 'fixed', continue with that text. 5. Write the IDS file with lintel_compile_rules. lintel_import_ids turns an existing IDS file into Lintel. A person reviews and signs the rules: leave out what IDS cannot express and say so in a comment, never approximate it.
+
+Tool: lintel_language_guide
+Returns the Lintel language on one page: the shape of a rule file, 'for' and the facets, the constraints, require / optional / prohibit, the mistakes that authors make, and examples. Read it once before you write or change Lintel rules.
+
+Tool: lintel_validate_rules
+Checks Lintel rules and changes nothing: the grammar, the rules of IDS, and every IFC class, predefined type, attribute, property set, property, data type and unit against the IFC version that the file names. Call it after every change. Give the rules as text in 'source', or the path of a .lintel file in 'path'. Returns JSON: 'ok' is true when there are no errors; 'diagnostics' holds each problem with severity, code, message, line, column, hint, the expected values and a fix. When the answer has 'fixed', that is the whole source with every fix applied: continue with it; when 'fixedOk' is true it has no errors left. A warning is valid IDS that probably says something else than you mean: repair warnings too.
+  - source (string): The rules as text. Give this or 'path'.
+  - path (string): The path of a .lintel file to check, full or relative to the project folder. Give this or 'source'.
+
+Tool: lintel_compile_rules
+Compiles Lintel rules to a buildingSMART IDS 1.0 file. Give the rules as text in 'source', or the path of a .lintel file in 'path'. With 'outputPath' the IDS is written to that .ids file and the answer is a short summary; without it the answer is the IDS text. Nothing is written when the rules have errors, or warnings that have a ready fix: the answer is then the JSON of lintel_validate_rules, with the repaired source in 'fixed'. Pass acceptWarnings: true to compile rules with such warnings as they are written.
+  - source (string): The rules as text. Give this or 'path'.
+  - path (string): The path of a .lintel file to compile, full or relative to the project folder. Give this or 'source'.
+  - outputPath (string): Where to write the IDS file; the name ends with .ids. Without it the IDS text is returned.
+  - overwrite (boolean, default false): Replace the file at 'outputPath' when it exists.
+  - acceptWarnings (boolean, default false): Compile although a warning has a ready fix.
+
+Tool: lintel_import_ids
+Turns a buildingSMART IDS 1.0 file into Lintel rules, to read, review or change an existing IDS file. Give the IDS as text in 'ids', or the path of an .ids file in 'path'. The answer is the Lintel source, and a note for whatever the file contains that Lintel does not keep; without a note the rules compile back to the same IDS. With 'outputPath' the source is written to that .lintel file.
+  - ids (string): The IDS file as text. Give this or 'path'.
+  - path (string): The path of an .ids file to read, full or relative to the project folder. Give this or 'ids'.
+  - outputPath (string): Where to write the Lintel source; the name ends with .lintel. Without it the source is returned.
+  - overwrite (boolean, default false): Replace the file at 'outputPath' when it exists.
+
+Tool: lintel_list_properties
+Looks up the IFC schema, so that rules use names that exist: the property sets and properties of the IFC standard with their data types, units and allowed values, and the attributes, predefined types and subtypes of a class. Give 'class' (IfcDoor) for an overview of the class and its property sets; add 'search' (fire) to find properties by a part of their name; give 'propertySet' (Pset_DoorCommon) for every property of one set. The names are English, as in IFC. A property that the standard does not have belongs to a property set of your own, whose name does not start with Pset_ or Qto_.
+  - class (string): An IFC class, such as IfcDoor: its attributes, predefined types, subtypes and property sets.
+  - propertySet (string): A property set of the standard, such as Pset_DoorCommon: every property with its data type.
+  - search (string): Words that the name of the set or the property contains, such as 'fire' or 'load bearing'.
+  - ifc (string, default "IFC4"): The IFC version of the rule file: IFC2X3, IFC4 or IFC4X3_ADD2.
+  - limit (integer, default 60): The most lines to return, 1 to 200.
+  - offset (integer, default 0): The number of lines to skip, for the next page.
+

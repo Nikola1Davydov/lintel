@@ -2,16 +2,16 @@
 
 Lintel states information requirements for IFC models. It compiles to buildingSMART IDS 1.0.
 This page is the whole language for an author; it is meant to be the description of the tool that checks rules.
-The full specification is [SPEC.md](SPEC.md).
 
 ## Shape of a file
 
 ```lintel
+title "Fire safety requirements"            # optional: the title of the IDS file
 ifc IFC4                                    # IFC2X3, IFC4 or IFC4X3_ADD2; several with commas
 define Status = ["New", "Existing", "Demolish"]         # optional: a named list
 
 rule R1 "Fire rating of load-bearing walls"             # rule ID "name"; the ID is optional
-  source "AIA 4.2.1: Alle tragenden Wände müssen eine Feuerwiderstandsklasse aufweisen."
+  source "Alle tragenden Wände müssen eine Feuerwiderstandsklasse aufweisen."
   for IfcWall                                           # which elements
   where property Pset_WallCommon.LoadBearing = true     # optional conditions, joined with 'and'
   require property Pset_WallCommon.FireRating matches "(F|REI)[0-9]{2,3}"   # one requirement per statement
@@ -21,7 +21,10 @@ The ID is a plain word of letters, digits and `_` (`R1`); any other ID is quoted
 Order inside a rule: `rule`, then `source` / `description` / `instructions` / `ifc` (all optional), then `for`,
 then `where`, then the requirements. `source` holds the original wording of the requirement, word for word,
 without its number.
-Comments start with `#`. Line breaks and indentation have no meaning.
+Comments start with `#`; they are for the reader of the rules and are not written to IDS.
+Line breaks and indentation have no meaning.
+Besides `title`, the top of the file may say `description`, `version`, `author` (an e-mail address),
+`date` ("2026-11-22"), `purpose`, `milestone` and `copyright`, each with a text.
 
 ## for: the elements
 
@@ -37,6 +40,8 @@ Comments start with `#`. Line breaks and indentation have no meaning.
 
 A facet follows `where`, `and`, `require`, `optional` or `prohibit`, and reads the same in each place.
 It always starts with its keyword. Without a constraint it means "is present".
+`where` selects: an element that lacks the property, attribute or material named there is not selected, and the
+rule says nothing about it.
 
 | Facet | Example |
 | --- | --- |
@@ -71,7 +76,7 @@ A custom property with a value gets the data type of the value (text: `IfcLabel`
 | Write | An element passes when |
 | --- | --- |
 | `require F` | it has F (and F meets the constraint) |
-| `optional F` | it has no F, or F meets the constraint. Needs a constraint |
+| `optional F` | it has no F, or F meets the constraint. Needs a constraint. Only for "if given": a limit such as "at most 0.24" means the value must be there, so `require` |
 | `prohibit F` | it has no F. `prohibit property` takes no constraint |
 | `require count >= 1` | (whole rule) at least one element is selected; it may be the only requirement |
 | `require count = 0` | (whole rule) no element is selected; the rule has no other requirement |
@@ -86,14 +91,19 @@ A custom property with a value gets the data type of the value (text: `IfcLabel`
    **no `^` and no `$`**, no `(?...)`, no lazy quantifiers, no `\b`. Strings are raw: write `\d`, not `\\d`.
 4. A number that is compared with a measure **carries its unit**: `150 mm`, `2.2 m`, `12 m2`, `0.24 W/m2K`, `45 deg`.
    Write the unit of the requirement; the compiler converts it to the SI unit that IDS stores.
-   Units: `m cm mm`, `m2 cm2 mm2`, `m3`, `rad deg`, `kg g t`, `s min h d`, `K degC`, `W kW`, `Pa kPa MPa`, `N kN`.
+   Units: `m cm mm`, `m2 cm2 mm2`, `m3`, `rad deg`, `kg g t`, `s min h d`, `K degC`, `W kW`, `Pa kPa MPa`, `N kN`,
+   `W/m2K`; any other measure takes its SI unit written without spaces, such as `kg/m3`.
 5. The predefined type belongs to the class: `for IfcSlab type FLOOR`, not `where attribute PredefinedType = ...`.
 6. Each requirement has its own `require` / `optional` / `prohibit`. Conditions after `where` are joined with `and`.
 7. Use the standard property sets of the IFC version (`Pset_...`, `Qto_...`) with their exact names;
-   these prefixes are reserved, so a custom set has another name.
-8. One rule for one requirement of the source document. Do not merge and do not invent requirements.
+   these prefixes are reserved, so a custom set has another name. Where the standard lists the values of a
+   property (`Status`: `"NEW"`, `"EXISTING"`, ...), write the value that means the same as the wording of the
+   requirement; the wording itself stays in `source`.
+8. One rule for one numbered requirement of the source document; it may hold several `require` lines.
+   Do not merge and do not invent requirements.
 9. Lintel cannot express: a comparison of two properties, sums and counts other than the two above, uniqueness,
-   geometry, or anything between two elements beyond `part of`. Leave such a requirement out and say so in a comment.
+   geometry, or anything between two elements beyond `part of`. Leave such a requirement out and say so in a comment;
+   when the IDS file itself must say what it leaves out, say it in `description` at the top of the file.
 
 ## More examples
 

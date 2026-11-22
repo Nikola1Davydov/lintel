@@ -829,13 +829,22 @@ public sealed class SchemaChecker
     {
         var text = TextOf(literal);
         var nearest = Suggestions.Nearest(text, allowed);
+
+        // A value is data of the author. Only another spelling of the same word is repaired; a word that merely
+        // looks like a value of the standard ("neu" and "NEW") is for the author to translate.
+        var sameWord = nearest is not null && string.Equals(nearest, text, StringComparison.OrdinalIgnoreCase);
+        var hint = sameWord
+            ? $"The standard writes it \"{nearest}\"."
+            : (nearest is not null ? $"Did you mean \"{nearest}\"? " : string.Empty)
+              + "Write the value of the standard that means the same; the wording of the requirement stays in 'source'. "
+              + "For values of your own use a property of your own.";
         _diagnostics.Report(
             descriptor,
             literal.Span,
             $"\"{text}\" is not a value of {Describe(facet)}; the standard lists the values.",
-            hint: nearest is not null ? $"Did you mean \"{nearest}\"?" : null,
+            hint: hint,
             expected: allowed,
-            fix: Fix(literal, literal.Span, nearest is null ? null : "\"" + nearest + "\""));
+            fix: Fix(literal, literal.Span, sameWord ? "\"" + nearest + "\"" : null));
     }
 
     private static string TextOf(Literal literal) => literal switch

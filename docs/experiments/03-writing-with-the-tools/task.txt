@@ -1,0 +1,14 @@
+Auszug aus den Auftraggeber-Informationsanforderungen (AIA), Leistungsphase 5. Das Modell wird als IFC4 geliefert.
+
+1. Alle Geschosse des Modells müssen benannt sein. Das Modell muss mindestens ein Geschoss enthalten.
+2. Für jedes Geschoss ist die lichte Geschosshöhe (Nettohöhe) als Menge im Mengensatz des IFC-Standards für Geschosse anzugeben.
+3. Türen müssen eine Feuerwiderstandsklasse haben. Sie besteht aus den Buchstaben T oder EI, gefolgt von zwei oder drei Ziffern, zum Beispiel T30 oder EI120.
+4. Türen müssen mindestens 2,10 m hoch sein (Gesamthöhe der Tür).
+5. Außenwände dürfen einen Wärmedurchgangskoeffizienten von höchstens 0,24 W/(m²K) haben.
+6. Der Status aller Wände ist anzugeben. Zulässig sind nur „neu“ und „Bestand“.
+7. Für Wände ist die Schallschutzklasse nach DIN 4109 im Merkmalsatz des Auftraggebers „AG_Wand“ als Merkmal „Schallschutzklasse“ anzugeben. Zulässig sind SSK1, SSK2 und SSK3.
+8. Bodenplatten (Fundamentplatten) müssen als tragend gekennzeichnet sein.
+9. Räume müssen eine Nettogrundfläche größer als 0 m² haben.
+10. Die Summe der Nettogrundflächen aller Räume eines Geschosses darf die Bruttogrundfläche des Geschosses nicht überschreiten.
+11. Platzhalterobjekte (Proxies) sind im Modell nicht zulässig.
+12. Tragende Stützen müssen aus Stahlbeton oder Stahl bestehen (Materialname „Stahlbeton“ oder „Stahl“).

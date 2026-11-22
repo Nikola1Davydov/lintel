@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "lintel": {
+      "type": "stdio",
+      "command": "dotnet",
+      "args": ["run", "--project", "${CLAUDE_PROJECT_DIR:-.}/src/Lintel.Mcp"]
+    }
+  }
+}

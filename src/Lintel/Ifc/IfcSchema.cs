@@ -332,6 +332,7 @@ public sealed class IfcProperty
             ? types.Select(t => IfcDataTypes.Find(t)?.Name ?? t).ToList()
             : new List<string>();
         AllowedValues = info is EnumerationPropertyType enumeration ? enumeration.EnumerationValues.ToList() : null;
+        Definition = info.Definition ?? string.Empty;
     }
 
     public string Name { get; }
@@ -341,4 +342,7 @@ public sealed class IfcProperty
 
     /// <summary>The values the standard allows for an enumerated property; <c>null</c> for other properties.</summary>
     public IReadOnlyList<string>? AllowedValues { get; }
+
+    /// <summary>What the property means, in the words of the IFC standard; empty when the standard says nothing.</summary>
+    public string Definition { get; }
 }

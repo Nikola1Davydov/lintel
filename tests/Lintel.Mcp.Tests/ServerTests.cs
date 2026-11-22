@@ -151,6 +151,21 @@ public class ServerTests
     }
 
     [Fact]
+    public async Task A_file_without_a_title_is_compiled_and_the_answer_says_how_to_give_one()
+    {
+        const string rule = "ifc IFC4\nrule \"x\"\n  for IfcSpace\n  require attribute Name";
+
+        var untitled = await _server.Call("lintel_compile_rules", ("source", rule));
+        Assert.False(untitled.Refused);
+        Assert.Contains("<title>Untitled</title>", untitled.Text);
+        Assert.Contains("Add a line at the top: title \"...\"", untitled.Blocks[1]);
+
+        var titled = await _server.Call("lintel_compile_rules", ("source", "title \"Spaces\"\n" + rule));
+        Assert.Contains("<title>Spaces</title>", titled.Text);
+        Assert.Single(titled.Blocks);
+    }
+
+    [Fact]
     public async Task A_file_is_replaced_only_when_asked()
     {
         using var folder = new Folder();
@@ -238,6 +253,54 @@ public class ServerTests
         await _server.Call("lintel_compile_rules", ("source", "rule"));
 
         Assert.DoesNotContain(_server.ErrorLines, line => line.Contains("Exception", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_relative_path_starts_at_the_project_folder_that_the_client_names()
+    {
+        // A client may start the server in any folder; Claude Code names the project in CLAUDE_PROJECT_DIR.
+        using var project = new Folder();
+        using var elsewhere = new Folder();
+        Directory.CreateDirectory(Path.Combine(project.Path, "requirements"));
+        File.WriteAllText(Path.Combine(project.Path, "requirements", "walls.lintel"), "ifc IFC4\nrule \"x\"\n  for IfcWall\n  require attribute Name");
+
+        var transport = new ModelContextProtocol.Client.StdioClientTransport(new ModelContextProtocol.Client.StdioClientTransportOptions
+        {
+            Name = "lintel",
+            Command = "dotnet",
+            Arguments = new[] { Path.Combine(AppContext.BaseDirectory, "Lintel.Mcp.dll") },
+            WorkingDirectory = elsewhere.Path,
+            EnvironmentVariables = new Dictionary<string, string?> { ["CLAUDE_PROJECT_DIR"] = project.Path },
+        });
+        await using var client = await ModelContextProtocol.Client.McpClient.CreateAsync(transport);
+
+        var written = new ToolAnswer(await client.CallToolAsync("lintel_compile_rules", new Dictionary<string, object?>
+        {
+            ["path"] = "requirements/walls.lintel",
+            ["outputPath"] = "out/walls.ids",
+        }));
+
+        Assert.False(written.Refused, written.All);
+        Assert.True(File.Exists(Path.Combine(project.Path, "out", "walls.ids")));
+        Assert.Empty(Directory.GetFileSystemEntries(elsewhere.Path));
+    }
+
+    [Fact]
+    public async Task A_long_IDS_text_goes_to_a_file_not_into_the_answer()
+    {
+        using var folder = new Folder();
+
+        // 'for IfcElement' is written as every element class: eight such rules are more text than a model should read.
+        var source = "ifc IFC4\n" + string.Concat(Enumerable.Range(1, 8).Select(i => $"rule \"r{i}\"\n  for IfcElement\n  require attribute Name\n"));
+
+        var asText = await _server.Call("lintel_compile_rules", ("source", source));
+        Assert.True(asText.Refused);
+        Assert.Contains("Give 'outputPath'", asText.Text);
+
+        var asFile = await _server.Call("lintel_compile_rules", ("source", source), ("outputPath", folder.File("elements.ids")));
+        Assert.False(asFile.Refused, asFile.All);
+        Assert.InRange(asFile.Text.Length, 1, 400);
+        Assert.True(new FileInfo(folder.File("elements.ids")).Length > 40_000);
     }
 
     private static JsonElement Json(ToolAnswer answer)
