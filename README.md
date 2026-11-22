@@ -41,14 +41,14 @@ IFC schema data and runs it as its last check, and the tests hold it to three cl
 | Claim | How it is tested |
 | --- | --- |
 | The compiler never writes IDS that the audit rejects | The audit runs on every result; what it rejects is an error at the place of the source |
-| Every IDS file that the audit accepts can be written in Lintel and comes back unchanged | The 346 IDS files of the official repository, and generated files: IDS to Lintel to IDS, compared as canonical XML |
-| An IDS file that the audit rejects does not get through | The 27 invalid official files, and generated files |
+| Every IDS file that the audit accepts can be written in Lintel and comes back unchanged | The IDS files of the official repository, and generated files: IDS to Lintel to IDS, compared as canonical XML. Of the 319 official files that the audit accepts, 318 come back unchanged; one labels single values of a list, which Lintel reports and does not keep |
+| An IDS file that the audit rejects does not get through | The 27 official files that the audit rejects, and generated files |
 
 The generated files are random combinations of facets, names of the IFC schema and names that are not, in the
 combinations IDS allows and in some it forbids. Three hundred of them run with every test run; the first run of
 3000 found 164 disagreements between the compiler and the audit, and they are why the compiler now asks the audit.
 What Lintel cannot keep from an IDS file is listed in [SPEC.md, section 7](SPEC.md#7-mapping-to-ids-10);
-the importer reports each case and no official file has one.
+the importer reports each case.
 
 ## Documents
 

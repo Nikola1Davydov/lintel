@@ -534,8 +534,8 @@ The `base` of an `xs:restriction` follows from the data type as in the IDS data 
 (`xs:string`, `xs:double`, `xs:integer`, `xs:boolean`, `xs:date`, ...).
 
 **What round trips.** IDS to Lintel to IDS gives the same IDS, compared as canonical XML, for every file that the
-official audit accepts. The exceptions are constructs that no IDS file in the official repository uses;
-the importer reports each of them (`W701`):
+official audit accepts. The exceptions are rare constructs; of the 319 valid files in the official repository
+one has one of them (labels on single values). The importer reports each (`W701`):
 
 - a restriction on a name (class, predefined type, attribute, property set, property, classification system)
   other than a list or patterns: a length, a bound, or a list together with a pattern;
@@ -674,6 +674,6 @@ Open:
 2. **`import`** brings lists only. Rule sets are combined by compiling several files.
 3. **Imperial units** are missing; `in` is a keyword.
 4. **Restrictions on names** other than a list or patterns, and the other limits of the round trip
-   ([7](#7-mapping-to-ids-10)), are reported and not kept. No official IDS file uses them.
+   ([7](#7-mapping-to-ids-10)), are reported and not kept.
 5. **Warnings and the agent**: a warning does not stop the compiler. Whether a tool for agents should refuse to
    write IDS while a warning has a fix is a decision for the tool, not for the language.
