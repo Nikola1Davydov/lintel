@@ -106,7 +106,7 @@ public sealed partial class Parser
         else if (AtKeyword("between"))
         {
             Take();
-            var min = ParseNumber();
+            var min = ParseBoundValue();
             if (AtWord("and"))
             {
                 TakeWord("and");
@@ -116,14 +116,14 @@ public sealed partial class Parser
                 ReportUnexpected("'and'");
             }
 
-            var max = ParseNumber();
+            var max = ParseBoundValue();
             term = min is null || max is null ? null : new BetweenTerm(min, max);
         }
         else if (BoundOf(Current.Kind) is { } bound)
         {
             Take();
-            var number = ParseNumber();
-            term = number is null ? null : new BoundTerm(bound, number);
+            var value = ParseBoundValue();
+            term = value is null ? null : new BoundTerm(bound, value);
         }
         else if (AtKeyword("length"))
         {
@@ -256,7 +256,7 @@ public sealed partial class Parser
         if (!number.IsInteger || number.Unit is not null || number.Text.StartsWith("-", StringComparison.Ordinal))
         {
             _diagnostics.Report(
-                Codes.InvalidRange,
+                Codes.InvalidLength,
                 number.Span,
                 "A length is a whole number of characters.");
         }
@@ -358,8 +358,8 @@ public sealed partial class Parser
                 $"'{_source.Substring(span.Start, span.Length)}' is not part of the language.",
                 hint: $"Write '{op}'.",
                 fix: new TextEdit(span, op));
-            var number = ParseNumber();
-            return number is null ? null : new BoundTerm(limit.Value.Kind, number);
+            var value = ParseBoundValue();
+            return value is null ? null : new BoundTerm(limit.Value.Kind, value);
         }
 
         return null;
@@ -518,6 +518,18 @@ public sealed partial class Parser
 
         ReportUnexpected("a value: text in quotes, a number, true or false");
         return null;
+    }
+
+    /// <summary>The value of a bound: a number, or a text for a date, a time or a duration.</summary>
+    private Literal? ParseBoundValue()
+    {
+        if (At(TokenKind.String))
+        {
+            var token = Take();
+            return new StringLiteral(token.Value) { Span = token.Span };
+        }
+
+        return ParseNumber();
     }
 
     private NumberLiteral? ParseNumber()

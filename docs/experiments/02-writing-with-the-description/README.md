@@ -66,9 +66,15 @@ The other remarks are about the requirements, not the language: which IFC class 
 would be selected, and that `Pset_ColumnCommon.LoadBearing` and `Pset_DoorCommon.IsExternal` are implied by
 "tragend" and "Außen" and not named. They are the questions a reviewer has to answer, and the models asked them.
 
+## Checked again with the full compiler
+
+When the experiment ran, the checker knew the grammar and the rules of IDS, not the IFC schema. Since then it checks
+every class, attribute, property set, property, data type and unit against IFC4, and runs the official IDS audit
+on the result. The four answers, unchanged, still have no errors and the same single warning, and each compiles to
+an IDS file that the official audit accepts. A test (`EmitterTests`) keeps it so.
+
 ## Limits
 
 - One vendor, four models, one attempt each, one task.
-- The checker does not yet verify IFC names, data types and units; the hand review found no mistake, but the
-  requirements named most of the property sets.
+- The requirements named most of the property sets, so the models had little to guess about IFC names.
 - The requirements are short and clear. Real documents are longer and vaguer.

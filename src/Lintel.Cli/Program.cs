@@ -49,7 +49,7 @@ public static class Program
             var compiled = LintelCompiler.Compile(source);
             if (compiled.Ids is null)
             {
-                Console.Error.WriteLine(compiled.Check.ToJson());
+                Console.Error.WriteLine(compiled.Check.Ok ? "The file has no rule: there is nothing to write." : compiled.Check.ToJson());
                 return 1;
             }
 

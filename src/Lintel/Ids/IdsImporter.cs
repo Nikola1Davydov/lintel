@@ -329,10 +329,10 @@ public sealed class IdsImporter
         {
             var types = ReadName(predefinedType, NameKind.PredefinedType);
 
-            // A value of the enumeration of the class is written bare; any other text is a type of the user and quoted.
-            var standard = StandardTypes(classes);
-            if (standard is not null && types.Kind != MatcherKind.Pattern)
+            // A value of the enumeration of a selected class is written bare; any other text is a type of the user and quoted.
+            if (types.Kind != MatcherKind.Pattern)
             {
+                var standard = Resolver.StandardPredefinedTypes(selector, _schemas);
                 var names = types.Names.Select(n => new NameItem(n.Text, !standard.Contains(n.Text), n.Span)).ToList();
                 types.Names.Clear();
                 types.Names.AddRange(names);
@@ -342,39 +342,6 @@ public sealed class IdsImporter
         }
 
         return selector;
-    }
-
-    /// <summary>The predefined types that every named class has in the schemas; <c>null</c> when a class is not known.</summary>
-    private HashSet<string>? StandardTypes(Matcher classes)
-    {
-        if (classes.Kind == MatcherKind.Pattern || classes.Names.Count == 0)
-        {
-            return null;
-        }
-
-        HashSet<string>? common = null;
-        foreach (var name in classes.Names)
-        {
-            foreach (var schema in _schemas)
-            {
-                var found = schema.FindClass(name.Text);
-                if (found is null)
-                {
-                    continue;
-                }
-
-                if (common is null)
-                {
-                    common = new HashSet<string>(found.PredefinedTypes, StringComparer.Ordinal);
-                }
-                else
-                {
-                    common.IntersectWith(found.PredefinedTypes);
-                }
-            }
-        }
-
-        return common;
     }
 
     private enum NameKind
@@ -435,6 +402,11 @@ public sealed class IdsImporter
             return new Matcher(MatcherKind.Exact, span);
         }
 
+        if ((string?)restriction.Attribute("base") != "xs:string")
+        {
+            Unsupported(restriction, $"A name is text; the restriction has the base '{(string?)restriction.Attribute("base")}'.");
+        }
+
         var patterns = restriction.Elements(Xs + "pattern").ToList();
         var values = restriction.Elements(Xs + "enumeration").ToList();
         foreach (var other in restriction.Elements().Where(e => e.Name != Xs + "pattern" && e.Name != Xs + "enumeration" && e.Name != Xs + "annotation"))
@@ -475,6 +447,15 @@ public sealed class IdsImporter
             }
         }
 
+        // IDS also accepts the name of an enumeration of IFC as a class name.
+        foreach (var schema in _schemas)
+        {
+            if (schema.Info[name] is { } other)
+            {
+                return other.Name;
+            }
+        }
+
         return name;
     }
 
@@ -503,12 +484,20 @@ public sealed class IdsImporter
         }
 
         var written = (string?)restriction.Attribute("base");
-        if (xmlBase is not null && written is not null && written != xmlBase)
+        if (string.IsNullOrEmpty(written))
+        {
+            Unsupported(restriction, "The restriction has no base type.");
+        }
+        else if (!string.IsNullOrEmpty(xmlBase) && written != xmlBase)
         {
             Unsupported(restriction, $"The restriction has the base {written}; the data type calls for {xmlBase}.");
         }
 
-        xmlBase ??= written;
+        if (string.IsNullOrEmpty(xmlBase))
+        {
+            xmlBase = written;
+        }
+
         var constraint = new Constraint { Span = span, Note = Documentation(restriction) };
 
         var values = restriction.Elements(Xs + "enumeration").ToList();
@@ -529,10 +518,10 @@ public sealed class IdsImporter
             constraint.Terms.Add(matches);
         }
 
-        var minInclusive = NumberOf(restriction, "minInclusive", unit);
-        var maxInclusive = NumberOf(restriction, "maxInclusive", unit);
-        var minExclusive = NumberOf(restriction, "minExclusive", unit);
-        var maxExclusive = NumberOf(restriction, "maxExclusive", unit);
+        var minInclusive = BoundOf(restriction, "minInclusive", xmlBase, unit);
+        var maxInclusive = BoundOf(restriction, "maxInclusive", xmlBase, unit);
+        var minExclusive = BoundOf(restriction, "minExclusive", xmlBase, unit);
+        var maxExclusive = BoundOf(restriction, "maxExclusive", xmlBase, unit);
 
         if (minInclusive is not null && maxInclusive is not null && minExclusive is null && maxExclusive is null)
         {
@@ -569,7 +558,7 @@ public sealed class IdsImporter
         return constraint;
     }
 
-    private static void AddBound(Constraint constraint, BoundKind kind, NumberLiteral? value, SourceSpan span)
+    private static void AddBound(Constraint constraint, BoundKind kind, Literal? value, SourceSpan span)
     {
         if (value is not null)
         {
@@ -595,7 +584,8 @@ public sealed class IdsImporter
         constraint.Terms.Add(new LengthTerm(kind, value) { Span = span });
     }
 
-    private NumberLiteral? NumberOf(XElement restriction, string facet, string? unit)
+    /// <summary>The value of a bound: a number, or text for a date, a time or a duration.</summary>
+    private Literal? BoundOf(XElement restriction, string facet, string? xmlBase, string? unit)
     {
         var element = restriction.Element(Xs + facet);
         if (element is null)
@@ -604,17 +594,17 @@ public sealed class IdsImporter
         }
 
         var value = (string?)element.Attribute("value") ?? string.Empty;
-        if (!Number.IsMatch(value))
-        {
-            Unsupported(element, $"The bound '{value}' is not a number.");
-            return null;
-        }
-
-        return new NumberLiteral(value, unit) { Span = SpanOf(element) };
+        return Number.IsMatch(value) && xmlBase is not ("xs:date" or "xs:dateTime" or "xs:time" or "xs:duration" or "xs:string")
+            ? new NumberLiteral(value, unit) { Span = SpanOf(element) }
+            : Literal(value, xmlBase, unit, element);
     }
 
-    /// <summary>A value as the literal its XML base type calls for; text when the base is unknown or the value does not fit.</summary>
-    private Literal Literal(string value, string? xmlBase, string? unit, XElement origin)
+    /// <summary>
+    /// A value as the literal its XML base type calls for: a number, true or false, or text.
+    /// A value that the language cannot write as that kind, such as NaN for a number or 1 for true, stays text
+    /// and is written back as it is.
+    /// </summary>
+    private static Literal Literal(string value, string? xmlBase, string? unit, XElement origin)
     {
         var span = SpanOf(origin);
         switch (xmlBase)
@@ -628,7 +618,6 @@ public sealed class IdsImporter
                     return new NumberLiteral(value, unit) { Span = span };
                 }
 
-                Unsupported(origin, $"'{value}' is not a number; it is kept as text.");
                 break;
 
             case "xs:boolean":
@@ -637,7 +626,6 @@ public sealed class IdsImporter
                     return new BooleanLiteral(value == "true") { Span = span };
                 }
 
-                Unsupported(origin, $"'{value}' is not 'true' or 'false'; it is kept as text.");
                 break;
         }
 

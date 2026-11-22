@@ -130,7 +130,8 @@ public class ParserTests
         Assert.Equal("IfcLengthMeasure", property.DataType);
         var bound = Assert.IsType<BoundTerm>(property.Value!.Terms.Single());
         Assert.Equal(BoundKind.GreaterOrEqual, bound.Kind);
-        Assert.Equal(("2.2", "m"), (bound.Value.Text, bound.Value.Unit));
+        var number = Assert.IsType<NumberLiteral>(bound.Value);
+        Assert.Equal(("2.2", "m"), (number.Text, number.Unit));
     }
 
     [Fact]
@@ -152,7 +153,8 @@ public class ParserTests
         var values = rule.Requirements.Select(r => r.Facet).Select(f => f is PropertyFacet p ? p.Value! : ((AttributeFacet)f).Value!).ToList();
 
         var between = Assert.IsType<BetweenTerm>(values[0].Terms.Single());
-        Assert.Equal(("150", "mm", "400", "mm"), (between.Min.Text, between.Min.Unit, between.Max.Text, between.Max.Unit));
+        var (min, max) = (Assert.IsType<NumberLiteral>(between.Min), Assert.IsType<NumberLiteral>(between.Max));
+        Assert.Equal(("150", "mm", "400", "mm"), (min.Text, min.Unit, max.Text, max.Unit));
 
         Assert.Equal(new[] { BoundKind.Greater, BoundKind.LessOrEqual }, values[1].Terms.Cast<BoundTerm>().Select(b => b.Kind));
         Assert.Equal("Status", Assert.IsType<InTerm>(values[2].Terms.Single()).ListName);
@@ -165,7 +167,7 @@ public class ParserTests
         Assert.Equal("naming scheme", values[4].Note);
 
         Assert.True(Assert.IsType<BooleanLiteral>(values[5].Equal).Value);
-        Assert.Equal("W/m2K", Assert.IsType<BoundTerm>(values[6].Terms.Single()).Value.Unit);
+        Assert.Equal("W/m2K", Assert.IsType<NumberLiteral>(Assert.IsType<BoundTerm>(values[6].Terms.Single()).Value).Unit);
     }
 
     [Fact]

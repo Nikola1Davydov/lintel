@@ -23,9 +23,9 @@ public class DiagnosticsTests
     [InlineData("require A.B = 1", "E209", "require property A.B = 1")]
     [InlineData("require \"My Set\".\"My Prop\"", "E209", "require property \"My Set\".\"My Prop\"")]
     [InlineData("require Name", "E209", "require attribute Name")]
-    [InlineData("require attribute Name matches \"^D[0-9]{3}$\"", "E301", "require attribute Name matches \"D[0-9]{3}\"")]
+    [InlineData("require attribute Name matches \"^D[0-9]{3}$\"", "W509", "require attribute Name matches \"D[0-9]{3}\"")]
     [InlineData("require attribute Name matches /D\\d{3}/", "E210", "require attribute Name matches \"D\\d{3}\"")]
-    [InlineData("require attribute Name matches /^D\\d{3}$/", "E301", "require attribute Name matches \"D\\d{3}\"")]
+    [InlineData("require attribute Name matches /^D\\d{3}$/", "W509", "require attribute Name matches \"D\\d{3}\"")]
     [InlineData("require attribute Name matches \"D\\\\d{3}\"", "W503", "require attribute Name matches \"D\\d{3}\"")]
     [InlineData("forbid property A.B", "E202", "prohibit property A.B")]
     [InlineData("requires attribute Name", "E202", "require attribute Name")]
@@ -118,9 +118,6 @@ public class DiagnosticsTests
 
     [Theory]
     [InlineData("require property A.B != 1", "E206")]
-    [InlineData("require attribute Name matches \"a.*?\"", "E302")]
-    [InlineData("require attribute Name matches \"(?i)abc\"", "E302")]
-    [InlineData("require attribute Name matches \"\\bword\\b\"", "E302")]
     [InlineData("require attribute Name matches \"(a|b\"", "E302")]
     [InlineData("optional attribute Name", "E303")]
     [InlineData("optional material", "E303")]
@@ -136,9 +133,6 @@ public class DiagnosticsTests
     [InlineData("require property A.B in Missing", "E308")]
     [InlineData("require property A.B in []", "E312")]
     [InlineData("require property A.B in [\"a\", 1]", "E312")]
-    [InlineData("require property A.B between 5 and 1", "E314")]
-    [InlineData("require property A.B > 5 and < 1", "E314")]
-    [InlineData("require property A.B > 1 and >= 2", "E314")]
     [InlineData("require attribute Name length <= 2.5", "E314")]
     [InlineData("require attribute Name uri \"https://example.org\"", "E315")]
     [InlineData("require part of IfcSpace via IfcRelDefinesByType", "E316")]
@@ -176,6 +170,23 @@ public class DiagnosticsTests
         var result = CheckLine(line);
 
         Assert.True(result.Diagnostics.Count == 0, result.Describe());
+    }
+
+    // What IDS accepts is not an error, even when it is probably not what the author means.
+    [Theory]
+    [InlineData("require attribute Name matches \"a.*?\"", "W510")]
+    [InlineData("require attribute Name matches \"(?i)abc\"", "W510")]
+    [InlineData("require attribute Name matches \"\\bword\\b\"", "W510")]
+    [InlineData("require attribute Name matches \"^x\"", "W509")]
+    [InlineData("require property A.B between 5 and 1", "W513")]
+    [InlineData("require property A.B > 5 and < 1", "W513")]
+    [InlineData("require property A.B > 1 and >= 2", "W513")]
+    public void Warnings(string line, string code)
+    {
+        var result = CheckLine(line);
+
+        Assert.True(result.Ok, result.Describe());
+        Assert.Contains(code, result.Codes());
     }
 
     [Fact]
@@ -271,7 +282,7 @@ public class DiagnosticsTests
             """);
 
         Assert.Contains("E201", result.Codes());
-        Assert.Contains("E301", result.Codes());
+        Assert.Contains("W509", result.Codes());
         Assert.Equal(2, result.File.Rules.Count());
     }
 }

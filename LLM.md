@@ -81,6 +81,7 @@ A custom property with a value gets the data type of the value (text: `IfcLabel`
 1. Compare with `=`. There is no `==`, `!=`, `or`, `not`. IDS cannot express them: use a list, a pattern or a second rule.
 2. Text values are in double quotes; numbers, `true` and `false` are not. Text is compared with case.
    A double quote inside a string is written twice (`""`); every other character is taken as it is.
+   A date, a time or a duration is text in the ISO form and can have bounds: `>= "2026-01-01"`, `= "P1D"`.
 3. A pattern is an XML Schema regular expression in double quotes. It always matches the whole value:
    **no `^` and no `$`**, no `(?...)`, no lazy quantifiers, no `\b`. Strings are raw: write `\d`, not `\\d`.
 4. A number that is compared with a measure **carries its unit**: `150 mm`, `2.2 m`, `12 m2`, `0.24 W/m2K`, `45 deg`.
@@ -149,6 +150,7 @@ rule R11 "Status of load-bearing elements"
 
 ## The answer of the checker
 
-The checker answers with JSON: `ok`, and `diagnostics` with `code`, `message`, `line`, `column`, `hint`,
+The checker answers with JSON: `ok`, and `diagnostics` with `severity`, `code`, `message`, `line`, `column`, `hint`,
 `expected` (the allowed values) and `fix`. When `fixed` is present it is the whole source with every fix applied;
-when `fixedOk` is true, use it as it is.
+when `fixedOk` is true, use it as it is. `ok` is true when there are no errors. A warning is valid IDS that
+probably says something else than you mean: repair it too.

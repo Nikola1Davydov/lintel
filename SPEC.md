@@ -130,8 +130,8 @@ constraint   = "=" literal
              | term { "and" term } [ note ] ;
 term         = "in" ( list | NAME )
              | "matches" patterns
-             | ( ">" | ">=" | "<" | "<=" ) number
-             | "between" number "and" number
+             | ( ">" | ">=" | "<" | "<=" ) bound
+             | "between" bound "and" bound
              | "length" ( "=" | ">=" | "<=" ) INTEGER ;
 patterns     = STRING | "[" STRING { "," STRING } "]" ;
 note         = "note" text ;
@@ -139,6 +139,7 @@ note         = "note" text ;
 list         = "[" literal { "," literal } [ "," ] "]" ;
 literal      = STRING | number | "true" | "false" ;
 number       = NUMBER [ NAME [ "/" NAME ] ] ;         (* a number and its unit *)
+bound        = number | STRING ;                      (* text for a date, a time or a duration *)
 text         = STRING | TEXTBLOCK ;
 ```
 
@@ -220,6 +221,9 @@ There are two levels, as in IDS.
 
 No other count is part of IDS 1.0. A rule without `count` needs at least one requirement.
 
+IDS takes a constraint on text that an empty text can meet, such as `matches ".*"` or a list with `""`, for a
+missing one. So `optional attribute Name matches ".*"` is an error, like `optional attribute Name`; write `".+"`.
+
 ### 5.4 Classes and subtypes
 
 A class name selects **that class and its subtypes**. `for IfcWall` in IFC4 selects `IfcWall`,
@@ -237,12 +241,18 @@ IDS itself matches a class name exactly, so the compiler writes out the list of 
 | `IfcSlab type FLOOR, ROOF` | either type |
 | `IfcWall type "Brandwand"` | a user-defined type, written as a string |
 
-A predefined type written as a name must be a value of the class's enumeration in the IFC schema.
+A predefined type written as a name must be a value of the enumeration of a selected class in the IFC schema.
 A string is free text: it is compared with `ObjectType` or `ElementType` when the predefined type is `USERDEFINED`.
 The predefined type may come from the type object of the element, as IDS defines.
+IDS takes free text only when every selected class has a predefined type with the value `USERDEFINED`.
+A class without a predefined type, such as `IfcWall` in IFC2X3, cannot be selected with `type` at all.
+
+`only` with an abstract class, such as `only IfcElement`, is valid IDS and selects nothing; the compiler warns.
 
 For a rule with several IFC versions the list of classes is the union over the versions.
-Each named class must exist in at least one of the versions, and each version must know at least one named class.
+Each named class must exist in at least one of the versions, and each version must have at least one of the
+selected classes. A class that one version lacks works there through those of its subtypes that the version has too:
+`for IfcBuiltElement` in a rule for IFC4 and IFC4X3_ADD2 selects walls, slabs and so on in both. The compiler says so.
 
 The same form follows `entity` in a requirement and `part of` in a relationship.
 
@@ -270,17 +280,19 @@ Names of property sets, properties and attributes may also be a list or a patter
 | `= "F90"`, `= 42`, `= true` | Exactly this value. Text is compared with case |
 | `in ["A", "B"]`, `in Status` | One of the values of the list |
 | `matches "F[0-9]{2}"` | The whole value matches the pattern. `matches ["a.*", "b.*"]` accepts either pattern |
-| `> 0`, `>= 0`, `< 10`, `<= 10` | A bound |
+| `> 0`, `>= 0`, `< 10`, `<= 10` | A bound on a number, a date, a time or a duration: `>= "2026-01-01"` |
 | `between 150 mm and 400 mm` | Both ends included |
 | `length = 4`, `length >= 2`, `length <= 12` | Number of characters of a text |
 | `... and ...` | Several terms, all of which must hold: `> 0 m2 and <= 500 m2` |
 | `... note "..."` | A sentence that explains the constraint to a reader |
 
 Patterns are XML Schema regular expressions. The whole value must match, so there are no anchors:
-`^` and `$` are an error. Lazy quantifiers, look-around, back-references and `\b` do not exist.
+`^` and `$` are ordinary characters there. Lazy quantifiers, look-around, back-references and `\b` do not exist.
 `\d`, `\w`, `\s`, `[A-Z]`, `{2,3}`, `|`, `(...)` and `.` work as usual.
-Checkers built on the regular expressions of .NET or Python accept more than XML Schema allows, for example `\/`;
-the compiler warns and writes the form that every checker accepts.
+The official audit and the common checkers read patterns with the regular expressions of .NET or Python, which
+accept more: there `^...$` are anchors, and `(?i)`, `.*?` and `\/` work. Such a pattern is valid IDS that a checker
+following XML Schema rejects or reads differently. The compiler warns about each of them and offers the form that
+every checker reads the same way; it rejects only a pattern that the official audit cannot read.
 
 A real number is equal to the required value within the IDS tolerance: a relative part of 10⁻⁶ plus 10⁻⁶.
 Bounds are compared exactly.
@@ -294,9 +306,26 @@ A property with a constraint needs a data type in IDS. It is found in this order
 3. the kind of the value: text is `IfcLabel`, an integer is `IfcInteger`, a number with a dot is `IfcReal`,
    `true` and `false` are `IfcBoolean`.
 
-The value must fit the data type: text for `IfcLabel`, a number for a measure, `true` or `false` for `IfcBoolean`,
-an integer without a dot for `IfcInteger`. `datatype` on a standard property must be its standard type.
+`datatype` on a standard property must be its standard type.
 A property without a constraint gets a data type only when `datatype` is written.
+When the type comes from a number (step 3), the compiler warns: a model that stores the property as a measure
+fails the rule.
+
+The value must fit the data type, and IDS allows different terms for different kinds of value:
+
+| Kind | Data types | Written as | Terms |
+| --- | --- | --- | --- |
+| Text | `IfcLabel`, `IfcText`, `IfcIdentifier`, ... | `"F90"` | `=`, `in`, `matches`, `length` |
+| Number | `IfcReal`, `IfcInteger`, `IfcCountMeasure`, every measure | `42`, `0.24 W/m2K`; `IfcInteger` without a dot | `=`, `in`, bounds, `between` |
+| True or false | `IfcBoolean`, `IfcLogical` | `true`, `false` | `=` |
+| Date and time | `IfcDate`, `IfcDateTime`, `IfcTime`, `IfcDuration` | `"2026-11-22"`, `"2026-11-22T10:00:00"`, `"10:00:00"`, `"P1D"` | `=`, `in`, bounds, `between` |
+
+IDS also allows `matches` on a value that is not text; the pattern is then compared with the way the checker
+writes the value, which IDS does not fix, and the compiler warns.
+A value that IDS can spell and the language cannot write as its kind is written as text and passed on as it is:
+`= "NaN"` for a number, `= "1"` for true.
+
+The value of an attribute has the type of the attribute in the IFC schema, and follows the same table.
 
 ### 5.8 Units
 
@@ -504,22 +533,52 @@ rule R16 "The survey point is a proxy"
 The `base` of an `xs:restriction` follows from the data type as in the IDS data type table
 (`xs:string`, `xs:double`, `xs:integer`, `xs:boolean`, `xs:date`, ...).
 
-**What round trips.** IDS to Lintel to IDS gives the same IDS, compared as canonical XML.
+**What round trips.** IDS to Lintel to IDS gives the same IDS, compared as canonical XML, for every file that the
+official audit accepts. The exceptions are constructs that no IDS file in the official repository uses;
+the importer reports each of them (`W701`):
+
+- a restriction on a name (class, predefined type, attribute, property set, property, classification system)
+  other than a list or patterns: a length, a bound, or a list together with a pattern;
+- a base type other than `xs:string` for a name, a classification code or a material;
+- an annotation on a single value of a list (Lintel has `note` for a whole constraint);
+- a value of an attribute whose XML type the IFC schema leaves open, when the file chooses another type than Lintel would.
+
+The importer checks itself: it compiles what it has written and compares the IDS with the one it read.
+Without a `W701` note the file comes back unchanged.
+
 Lintel to IDS to Lintel gives a file with the same meaning: the names of lists, comments, the units as written and
 the short form of a class with its subtypes are not stored in IDS.
 The importer writes a class list as `C` when it is exactly `C` with its subtypes, and as `only ...` otherwise.
 
 ## 8. Checks of the compiler
 
-The compiler rejects everything that the official IDS audit rejects. In addition to the grammar:
+The judge of what a valid IDS file is, is the official IDS audit of buildingSMART
+([IDS-Audit-tool](https://github.com/buildingSMART/IDS-Audit-tool), the library `ids-lib`). The compiler is built on it:
 
-- every IFC class, predefined type, attribute, standard property set, property and data type exists in each IFC version
-  that needs it; a property set named `Pset_...` or `Qto_...` must be a standard one;
-- a standard property set fits the selected classes;
-- the facet and cardinality combinations of [section 5.3](#53-requirements-and-cardinality);
-- values fit their data type, measures carry a unit, patterns are valid XML Schema patterns and are used on text only;
-- `for any` has a `where`; a rule has a requirement unless `count` says otherwise;
-- the entity of a requirement can be met by the selected classes.
+1. **The compiler never writes an IDS file that the audit rejects.** The audit runs as the last check on the IDS
+   that the file compiles to. What it rejects is an error at the place of the source it comes from.
+2. **An error means: the audit rejects this**, or it breaks a rule of the language itself (a measure carries its unit,
+   a value is written as its kind, one canonical spelling). For most of these the compiler has a message of its own,
+   with a hint, the allowed values and a fix; the rest is reported with the words of the audit (`E499`).
+3. **What the audit accepts is not an error.** Where it is probably not what the author means, the compiler warns.
+   IDS is produced; `fixed` has the repaired source when there is a repair.
+
+The checks that need the IFC schema follow the audit, which works with sets of classes: every facet stands for the
+classes that could meet it, and a rule is invalid when no class can meet all its conditions and required
+requirements at once.
+
+- A class exists in at least one IFC version of the rule, and every version has at least one of the selected classes.
+- A predefined type is possible for every selected class ([section 5.4](#54-classes-and-subtypes)).
+- An attribute exists in the schema, and a selected class has it. With a constraint it holds a single value.
+- A property set named `Pset_...` is a set of the standard, its property is one of its properties, and the set is
+  made for the selected classes. `datatype` is the type the standard gives the property.
+- With `via`, the whole and the part are of the classes that the relationship connects.
+- A class in `require entity` is among the selected classes.
+- Values fit their data type; an enumerated property of the standard takes one of the listed values.
+
+IDS checks property sets, attributes on the selected classes and `part of` only in a requirement that must be met.
+In `optional` and `prohibit`, a name that the schema does not have is valid IDS that checks nothing; the compiler
+warns (`W511`). The same holds for the prefix `Qto_`, which IDS does not reserve, and for one unknown name in a list.
 
 ## 9. Diagnostics
 
@@ -533,7 +592,7 @@ The compiler reports problems as data. Lines and columns start at 1; the end pos
       "severity": "error",
       "code": "E404",
       "name": "unknown-property",
-      "message": "Pset_WallCommon has no property 'FireRatin' in IFC4.",
+      "message": "Pset_WallCommon has no property FireRatin in IFC4.",
       "line": 6, "column": 36, "endLine": 6, "endColumn": 45,
       "rule": "R1",
       "hint": "Did you mean 'FireRating'?",
@@ -548,7 +607,7 @@ The compiler reports problems as data. Lines and columns start at 1; the end pos
 
 | Field | Meaning |
 | --- | --- |
-| `severity` | `error`: no IDS is produced. `warning`: IDS is produced. `info`: a fact the reviewer may want to see, such as an inferred data type |
+| `severity` | `error`: no IDS is produced. `warning`: IDS is produced, but the author probably means something else or uses a spelling that is not the canonical one |
 | `code`, `name` | Stable identifiers. The code never changes its meaning |
 | `message` | One sentence that says what is wrong |
 | `line`, `column`, `endLine`, `endColumn` | The range in the source |
@@ -565,14 +624,17 @@ Codes are grouped by the stage that finds the problem:
 | --- | --- | --- |
 | `E1xx` | Characters | `E101` unterminated-string, `E102` unexpected-character, `E103` malformed-number, `E104` unterminated-text-block |
 | `E2xx` | Grammar | `E201` unexpected-token, `E202` unknown-keyword, `E203` misplaced-statement, `E204` duplicate-statement, `E205` missing-for, `E206` unsupported-operator, `E207` one-facet-per-requirement, `E208` unsupported-phrase, `E209` missing-facet-keyword, `E210` pattern-in-slashes, `E211` reserved-word |
-| `E3xx` | Structure, no IFC schema needed | `E301` anchored-pattern, `E302` invalid-pattern, `E303` invalid-cardinality, `E304` unsupported-count, `E305` requirement-not-allowed, `E306` missing-requirement, `E307` missing-where, `E308` unknown-list, `E309` duplicate-definition, `E310` invalid-ifc-version, `E311` missing-ifc-version, `E312` invalid-list, `E313` invalid-metadata, `E314` invalid-range, `E315` uri-not-allowed, `E316` invalid-relation |
-| `E4xx` | IFC schema (planned) | `E401` unknown-class, `E402` unknown-attribute, `E403` unknown-property-set, `E404` unknown-property, `E405` unknown-predefined-type, `E406` unknown-datatype, `E407` datatype-mismatch, `E408` value-type-mismatch, `E409` unit-required, `E410` unknown-unit, `E411` property-set-not-applicable |
-| `W5xx` | Warnings | `W501` predefined-type-as-attribute, `W502` quoted-name, `W503` double-backslash, `W504` range-as-two-bounds, `W505` duplicate-identifier, `W506` non-portable-escape |
-| `I6xx` | Information (planned) | `I601` datatype-inferred, `I602` classes-expanded |
+| `E3xx` | Structure, no IFC schema needed | `E302` invalid-pattern, `E303` invalid-cardinality, `E304` unsupported-count, `E305` requirement-not-allowed, `E306` missing-requirement, `E307` missing-where, `E308` unknown-list, `E309` duplicate-definition, `E310` invalid-ifc-version, `E311` missing-ifc-version, `E312` invalid-list, `E313` invalid-metadata, `E314` invalid-length, `E315` uri-not-allowed, `E316` invalid-relation, `E317` empty-match |
+| `E4xx` | IFC schema | `E401` unknown-class, `E402` unknown-attribute, `E403` unknown-property-set, `E404` unknown-property, `E405` unknown-predefined-type, `E406` unknown-datatype, `E407` datatype-mismatch, `E408` value-type-mismatch, `E409` unit-required, `E410` unknown-unit, `E411` property-set-not-applicable, `E412` class-not-in-version, `E413` datatype-required, `E414` incompatible-entity, `E415` invalid-relation-target, `E416` no-common-class |
+| `E499` | The official IDS audit | `E499` rejected-by-ids-audit: the audit rejects the result for a reason that no other code covers; the message is the audit's |
+| `W5xx` | Warnings | `W501` predefined-type-as-attribute, `W502` quoted-name, `W503` double-backslash, `W504` range-as-two-bounds, `W505` duplicate-identifier, `W506` non-portable-escape, `W507` inferred-number-type, `W508` abstract-class, `W509` anchored-pattern, `W510` non-standard-pattern, `W511` not-in-schema, `W512` pattern-on-number, `W513` odd-range |
 | `W7xx` | Import of IDS | `W701` ids-not-representable |
 
+`E301` and the old meaning of `E314` (an empty range) are not used any more: IDS accepts an anchored pattern and an
+empty range, so they are the warnings `W509` and `W513`.
+
 Spellings that authors are known to try get their own message and fix. Examples:
-`==` for `=`; `^...$` in a pattern; `forbid` or `must not` for `prohibit`; `requirement` or `spec` for `rule`;
+`==` for `=`; `^...$` in a pattern (a warning, with the fix); `forbid` or `must not` for `prohibit`; `requirement` or `spec` for `rule`;
 `applies to` for `for`; `schema IFC4` for `ifc IFC4`; `/regex/` for `"regex"`;
 `where PredefinedType = FLOOR` for `type FLOOR`; `require Pset_WallCommon.FireRating` without `property`.
 
@@ -592,14 +654,24 @@ Level 2 (rules between elements, `count` with other numbers, `sum`, `unique`, co
 level 3 (`fix` and `set`, for the Revit adapter only) are not part of v0.1. They will never be written to IDS:
 IDS forbids proprietary extensions. A file without `fix` changes nothing in a model.
 
-## 11. Open questions
+## 11. Decisions and open questions
+
+Decided:
+
+1. **Subtypes by default** ([5.4](#54-classes-and-subtypes)): a class name selects the class and its subtypes;
+   `only` gives the exact meaning of IDS. 6 of 8 language models assumed this in the syntax experiment, and a missed
+   class is a silent error.
+2. **Units are mandatory** for measures ([5.8](#58-units)); the compiler converts to the SI unit that IDS stores.
+3. **`source`** is stored in `requirements/@description`. IDS has no field for the original wording of a requirement.
+4. **The official audit is the judge** of validity ([8](#8-checks-of-the-compiler)): an error where it rejects,
+   a warning at most where it accepts.
+
+Open:
 
 1. **Name of the language** and the file extension (`.lintel` here).
-2. **Subtypes by default** ([5.4](#54-classes-and-subtypes)). The alternative is the IDS meaning (exact class) with
-   a warning when a class has subtypes. The default was chosen because 6 of 8 language models assumed it in the
-   syntax experiment, and because a missed class is a silent error.
-3. **Units are mandatory** for measures ([5.8](#58-units)). The alternative is a bare number in SI units as in IDS.
-4. **`source`** is stored in `requirements/@description`. IDS has no field for the original wording of a requirement.
-5. **Dates and durations** (`IfcDate`, `IfcDuration`, ...) are strings in v0.1; bounds on them are not checked for form.
-6. **`import`** brings lists only. Rule sets are combined by compiling several files.
-7. **Imperial units** are missing; `in` is a keyword.
+2. **`import`** brings lists only. Rule sets are combined by compiling several files.
+3. **Imperial units** are missing; `in` is a keyword.
+4. **Restrictions on names** other than a list or patterns, and the other limits of the round trip
+   ([7](#7-mapping-to-ids-10)), are reported and not kept. No official IDS file uses them.
+5. **Warnings and the agent**: a warning does not stop the compiler. Whether a tool for agents should refuse to
+   write IDS while a warning has a fix is a decision for the tool, not for the language.

@@ -50,10 +50,12 @@ public enum BoundKind
     LessOrEqual,
 }
 
-/// <summary><c>&gt;</c>, <c>&gt;=</c>, <c>&lt;</c> or <c>&lt;=</c> with a number.</summary>
+/// <summary>
+/// <c>&gt;</c>, <c>&gt;=</c>, <c>&lt;</c> or <c>&lt;=</c> with a number; with a text for a date, a time or a duration.
+/// </summary>
 public sealed class BoundTerm : Term
 {
-    public BoundTerm(BoundKind kind, NumberLiteral value)
+    public BoundTerm(BoundKind kind, Literal value)
     {
         Kind = kind;
         Value = value;
@@ -61,21 +63,21 @@ public sealed class BoundTerm : Term
 
     public BoundKind Kind { get; }
 
-    public NumberLiteral Value { get; }
+    public Literal Value { get; }
 }
 
 /// <summary><c>between a and b</c>, both ends included.</summary>
 public sealed class BetweenTerm : Term
 {
-    public BetweenTerm(NumberLiteral min, NumberLiteral max)
+    public BetweenTerm(Literal min, Literal max)
     {
         Min = min;
         Max = max;
     }
 
-    public NumberLiteral Min { get; }
+    public Literal Min { get; }
 
-    public NumberLiteral Max { get; }
+    public Literal Max { get; }
 }
 
 public enum LengthKind

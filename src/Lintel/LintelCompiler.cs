@@ -12,13 +12,17 @@ namespace Lintel;
 /// <summary>The result of checking one source text.</summary>
 public sealed class CheckResult
 {
-    internal CheckResult(RuleFile file, IReadOnlyList<Diagnostic> diagnostics, string? fixedSource, bool? fixedOk)
+    internal CheckResult(RuleFile file, IReadOnlyList<Diagnostic> diagnostics, string? ids, string? fixedSource, bool? fixedOk)
     {
         File = file;
         Diagnostics = diagnostics;
+        Ids = ids;
         Fixed = fixedSource;
         FixedOk = fixedOk;
     }
+
+    /// <summary>The IDS text that the file compiles to; <c>null</c> when it has errors.</summary>
+    internal string? Ids { get; }
 
     public RuleFile File { get; }
 
@@ -112,7 +116,7 @@ public sealed class CompileResult
 
     public CheckResult Check { get; }
 
-    /// <summary>The IDS 1.0 file; <c>null</c> when the source has errors.</summary>
+    /// <summary>The IDS 1.0 file; <c>null</c> when the source has errors or no rule.</summary>
     public string? Ids { get; }
 }
 
@@ -144,15 +148,34 @@ public static class LintelCompiler
     public static CompileResult Compile(string source)
     {
         var check = Check(source);
-        return new CompileResult(check, check.Ok ? IdsEmitter.EmitText(check.File) : null);
+        return new CompileResult(check, check.Ok ? check.Ids : null);
     }
 
-    /// <summary>Reads an IDS 1.0 file and writes it as Lintel source.</summary>
+    /// <summary>
+    /// Reads an IDS 1.0 file and writes it as Lintel source. The notes say what the source cannot keep.
+    /// The reader checks itself: it compiles the source again, and when the IDS that comes back differs from
+    /// the IDS it read, a note says where. Without notes the file comes back unchanged.
+    /// </summary>
     public static ImportResult Import(string ids)
     {
         var notes = new DiagnosticBag();
         var file = IdsImporter.Import(ids, notes);
-        return new ImportResult(file, Printer.Print(file), notes.Items);
+        var source = Printer.Print(file);
+
+        if (notes.Items.Count == 0)
+        {
+            var back = Compile(source).Ids;
+            var difference = back is null ? null : IdsCanonical.FirstDifference(IdsCanonical.Of(ids), IdsCanonical.Of(back));
+            if (difference is not null)
+            {
+                notes.Report(
+                    Codes.IdsNotRepresentable,
+                    default,
+                    "The file does not come back from Lintel unchanged. The first difference, as 'the file | Lintel': " + difference);
+            }
+        }
+
+        return new ImportResult(file, source, notes.Items);
     }
 
     /// <summary>
@@ -161,7 +184,7 @@ public static class LintelCompiler
     /// </summary>
     public static CheckResult Check(string source)
     {
-        var (file, diagnostics) = Run(source);
+        var (file, diagnostics, ids) = Run(source);
 
         string? fixedSource = null;
         bool? fixedOk = null;
@@ -181,7 +204,7 @@ public static class LintelCompiler
             fixedOk = currentDiagnostics.All(d => d.Severity != Severity.Error);
         }
 
-        return new CheckResult(file, diagnostics, fixedSource, fixedOk);
+        return new CheckResult(file, diagnostics, ids, fixedSource, fixedOk);
     }
 
     /// <summary>Reads a source text without checking it beyond the grammar.</summary>
@@ -193,13 +216,26 @@ public static class LintelCompiler
         return file;
     }
 
-    private static (RuleFile File, IReadOnlyList<Diagnostic> Diagnostics) Run(string source)
+    private static (RuleFile File, IReadOnlyList<Diagnostic> Diagnostics, string? Ids) Run(string source)
     {
         var bag = new DiagnosticBag();
         var file = Parser.Parse(source, bag);
         StructureChecker.Check(source, file, bag);
         SchemaChecker.Check(file, bag);
-        return (file, Ordered(bag));
+
+        // The last check: the official IDS audit, on the IDS that the file compiles to.
+        // A file without rules, such as a file of lists that others import, compiles to nothing.
+        string? ids = null;
+        if (file.Rules.Any() && bag.Items.All(d => d.Severity != Severity.Error))
+        {
+            ids = IdsAudit.Check(file, bag);
+            if (bag.Items.Any(d => d.Severity == Severity.Error))
+            {
+                ids = null;
+            }
+        }
+
+        return (file, Ordered(bag), ids);
     }
 
     private static IReadOnlyList<Diagnostic> Ordered(DiagnosticBag bag) =>

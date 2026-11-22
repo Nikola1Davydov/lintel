@@ -276,6 +276,63 @@ public static class XsdPattern
         }
     }
 
+    /// <summary>
+    /// The pattern as the official IDS audit compiles it: the .NET expression "^pattern$" with the character
+    /// classes of XML. This decides what the audit accepts, which is more than XML Schema allows: there,
+    /// anchors, look-around and lazy quantifiers work. <c>null</c> when the audit rejects the pattern.
+    /// </summary>
+    public static Regex? ToAuditRegex(string pattern)
+    {
+        var body = new StringBuilder(pattern.Length + 16).Append('^');
+        var copied = 0;
+        for (var i = 0; i < pattern.Length - 1; i++)
+        {
+            if (pattern[i] != '\\')
+            {
+                continue;
+            }
+
+            var next = pattern[i + 1];
+            if (next == '\\')
+            {
+                // a backslash itself; what follows it is not an escape
+                i++;
+                continue;
+            }
+
+            var xml = next switch
+            {
+                'c' => "\\p{_xmlC}",
+                'C' => "\\P{_xmlC}",
+                'd' => "\\p{_xmlD}",
+                'D' => "\\P{_xmlD}",
+                'i' => "\\p{_xmlI}",
+                'I' => "\\P{_xmlI}",
+                'w' => "\\p{_xmlW}",
+                'W' => "\\P{_xmlW}",
+                _ => null,
+            };
+            if (xml is null)
+            {
+                continue;
+            }
+
+            body.Append(pattern, copied, i - copied).Append(xml);
+            i++;
+            copied = i + 1;
+        }
+
+        body.Append(pattern, copied, pattern.Length - copied).Append('$');
+        try
+        {
+            return new Regex(body.ToString(), RegexOptions.Singleline | RegexOptions.CultureInvariant);
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
     private static PatternProblem Invalid(string message, string? hint = null) =>
         new(PatternProblemKind.Invalid, message, hint, null);
 

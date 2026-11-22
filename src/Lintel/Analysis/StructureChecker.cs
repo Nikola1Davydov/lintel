@@ -18,6 +18,7 @@ public sealed class StructureChecker
     private static readonly Regex Email = new(@"^[^@]+@[^\.]+\..+$", RegexOptions.CultureInvariant);
     private static readonly Regex Date = new(@"^\d{4}-\d{2}-\d{2}(Z|([+-]\d{2}:\d{2}))?$", RegexOptions.CultureInvariant);
     private static readonly Regex BareName = new(@"^[\p{L}_][\p{L}\p{Nd}_]*$", RegexOptions.CultureInvariant);
+    private static readonly Regex SpecialNumber = new(@"^([-+]?[0-9]*\.?[0-9]*([eE][-+]?[0-9]+)?|NaN|\+INF|-INF)$", RegexOptions.CultureInvariant);
 
     private readonly string _source;
     private readonly RuleFile _file;
@@ -274,6 +275,18 @@ public sealed class StructureChecker
                 break;
         }
 
+        // The value of an attribute may be a number, which only the schema tells; that case is checked there.
+        var value = facet switch
+        {
+            ClassificationFacet classification => classification.Value,
+            MaterialFacet material => material.Value,
+            _ => null,
+        };
+        if (requirement.Cardinality == Cardinality.Optional && value is not null && EmptyText.Meets(value, _lists))
+        {
+            EmptyText.Report(_diagnostics, value);
+        }
+
         if (requirement.Uri is not null && facet is not (PropertyFacet or ClassificationFacet or MaterialFacet))
         {
             _diagnostics.Report(
@@ -309,6 +322,15 @@ public sealed class StructureChecker
             case ClassificationFacet classification:
                 CheckName(classification.System, quotedByDefault: true);
                 CheckConstraint(classification.Value);
+                if (EmptyText.Meets(classification.System))
+                {
+                    _diagnostics.Report(
+                        Codes.EmptyMatch,
+                        classification.System.Span,
+                        "An empty text also meets this, and IDS takes that for a missing classification system.",
+                        hint: "Name the system, or write a pattern that needs at least one character, such as \".+\".");
+                }
+
                 break;
 
             case MaterialFacet material:
@@ -339,6 +361,11 @@ public sealed class StructureChecker
     /// </summary>
     private void CheckName(Matcher matcher, bool quotedByDefault)
     {
+        if (matcher.Kind == MatcherKind.AnyOf && matcher.Names.Count == 0)
+        {
+            _diagnostics.Report(Codes.InvalidList, matcher.Span, "The list is empty.");
+        }
+
         foreach (var pattern in matcher.Patterns)
         {
             CheckPattern(pattern);
@@ -413,9 +440,9 @@ public sealed class StructureChecker
                     if (TryCompare(between.Min, between.Max, out var order) && order > 0)
                     {
                         _diagnostics.Report(
-                            Codes.InvalidRange,
+                            Codes.OddRange,
                             between.Span,
-                            "The range is empty: the first number is greater than the second.");
+                            "The range is empty: the first number is greater than the second. No value can meet it.");
                     }
 
                     break;
@@ -425,9 +452,10 @@ public sealed class StructureChecker
                     if ((isLower && lower is not null) || (!isLower && upper is not null))
                     {
                         _diagnostics.Report(
-                            Codes.InvalidRange,
+                            Codes.OddRange,
                             bound.Span,
-                            isLower ? "The value has two lower bounds." : "The value has two upper bounds.");
+                            isLower ? "The value has two lower bounds." : "The value has two upper bounds.",
+                            hint: "Keep the stricter one.");
                     }
                     else if (isLower)
                     {
@@ -447,9 +475,9 @@ public sealed class StructureChecker
             if (TryCompare(lower.Value, upper.Value, out var order) && order > 0)
             {
                 _diagnostics.Report(
-                    Codes.InvalidRange,
+                    Codes.OddRange,
                     SourceSpan.Join(lower.Span, upper.Span),
-                    "The range is empty: the lower bound is greater than the upper bound.");
+                    "The range is empty: the lower bound is greater than the upper bound. No value can meet it.");
             }
             else if (lower.Kind == BoundKind.GreaterOrEqual
                      && upper.Kind == BoundKind.LessOrEqual
@@ -469,9 +497,17 @@ public sealed class StructureChecker
 
     private void CheckPattern(StringLiteral pattern)
     {
+        // The official audit reads a pattern with the regular expressions of .NET. What it cannot read is an error.
+        // What it reads although XML Schema does not allow it is valid IDS that only some checkers understand.
+        var readable = XsdPattern.ToAuditRegex(pattern.Value) is not null;
         var problem = XsdPattern.Check(pattern.Value);
         if (problem is null)
         {
+            if (!readable)
+            {
+                _diagnostics.Report(Codes.InvalidPattern, pattern.Span, "The pattern is not a regular expression.");
+            }
+
             return;
         }
 
@@ -480,13 +516,13 @@ public sealed class StructureChecker
             PatternProblemKind.Anchor => Codes.AnchoredPattern,
             PatternProblemKind.DoubleBackslash => Codes.DoubleBackslash,
             PatternProblemKind.NonPortableEscape => Codes.NonPortableEscape,
-            _ => Codes.InvalidPattern,
+            _ => readable ? Codes.NonStandardPattern : Codes.InvalidPattern,
         };
 
         _diagnostics.Report(
             descriptor,
             pattern.Span,
-            problem.Message,
+            descriptor == Codes.NonStandardPattern ? problem.Message + " Checkers that follow the standard reject the pattern." : problem.Message,
             hint: problem.Hint,
             fix: problem.Repaired is null
                 ? null
@@ -501,7 +537,8 @@ public sealed class StructureChecker
             return;
         }
 
-        var text = values.Any(v => v is StringLiteral);
+        // A number that only IDS can spell, such as NaN, is written as text among numbers.
+        var text = values.Any(v => v is StringLiteral literal && !SpecialNumber.IsMatch(literal.Value));
         var other = values.Any(v => v is not StringLiteral);
         if (text && other)
         {
@@ -515,10 +552,12 @@ public sealed class StructureChecker
 
     private string Text(SourceSpan span) => _source.Substring(span.Start, span.Length);
 
-    private static bool TryCompare(NumberLiteral a, NumberLiteral b, out int order)
+    private static bool TryCompare(Literal first, Literal second, out int order)
     {
         order = 0;
-        if (!string.Equals(a.Unit, b.Unit, StringComparison.Ordinal)
+        if (first is not NumberLiteral a
+            || second is not NumberLiteral b
+            || !string.Equals(a.Unit, b.Unit, StringComparison.Ordinal)
             || !double.TryParse(a.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var x)
             || !double.TryParse(b.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var y))
         {

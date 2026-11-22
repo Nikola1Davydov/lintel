@@ -19,6 +19,8 @@ public sealed class IfcSchema
     private readonly Dictionary<string, IfcClass> _classes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, IfcPropertySet> _propertySets = new(StringComparer.Ordinal);
     private readonly Lazy<IReadOnlyList<string>> _attributeNames;
+    private readonly Lazy<IReadOnlyList<string>> _auditClassNames;
+    private readonly Lazy<IReadOnlyList<string>> _auditAttributeNames;
     private readonly Dictionary<string, HashSet<string>> _applicable = new(StringComparer.Ordinal);
 
     private IfcSchema(string version, SchemaInfo info, IfcSchemaVersions flag)
@@ -40,12 +42,30 @@ public sealed class IfcSchema
         ClassNames = _classes.Keys.OrderBy(n => n, StringComparer.Ordinal).ToList();
         PropertySetNames = _propertySets.Keys.OrderBy(n => n, StringComparer.Ordinal).ToList();
         _attributeNames = new Lazy<IReadOnlyList<string>>(() => info.GetAttributeNames().OrderBy(n => n, StringComparer.Ordinal).ToList());
+        _auditClassNames = new Lazy<IReadOnlyList<string>>(() => info.Select(c => c.Name.ToUpperInvariant()).ToList());
+        _auditAttributeNames = new Lazy<IReadOnlyList<string>>(() => SchemaInfo.AllAttributes
+            .Where(a => (a.ValidSchemaVersions & flag) == flag)
+            .Select(a => a.IfcAttributeName)
+            .Distinct(StringComparer.Ordinal)
+            .ToList());
     }
 
     /// <summary>The version as IDS names it: IFC2X3, IFC4 or IFC4X3_ADD2.</summary>
     public string Version { get; }
 
     internal IfcSchemaVersions Flag { get; }
+
+    /// <summary>The schema as the official IDS audit knows it. The checks ask it wherever they must agree with the audit.</summary>
+    internal SchemaInfo Info => _info;
+
+    /// <summary>
+    /// Every name the audit takes for a class, in upper case. Besides the entity classes these are the
+    /// enumerations: the audit lets an IDS file name one, although no object of a model has such a class.
+    /// </summary>
+    internal IReadOnlyList<string> AuditClassNames => _auditClassNames.Value;
+
+    /// <summary>The attribute names of this version as the audit lists them for a facet without a value.</summary>
+    internal IReadOnlyList<string> AuditAttributeNames => _auditAttributeNames.Value;
 
     /// <summary>Every entity class, as the IFC documentation spells it.</summary>
     public IReadOnlyList<string> ClassNames { get; }
@@ -99,40 +119,53 @@ public sealed class IfcSchema
     public IfcPropertySet? FindPropertySet(string name) => _propertySets.TryGetValue(name, out var found) ? found : null;
 
     /// <summary>
-    /// The classes a standard property set may be attached to: the classes it is defined for with their subtypes,
-    /// and the type objects of those classes. This is the rule of the official audit.
+    /// The classes a standard property set may be attached to, in upper case: the classes it is defined for with
+    /// their subtypes, and the type objects of those classes. This is the rule of the official audit, step by step.
     /// </summary>
-    public IReadOnlyCollection<string> ClassesOf(IfcPropertySet set)
+    internal IReadOnlyCollection<string> AuditClassesOf(string setName)
     {
         lock (_applicable)
         {
-            if (_applicable.TryGetValue(set.Name, out var known))
+            if (_applicable.TryGetValue(setName, out var known))
             {
                 return known;
             }
 
             var result = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var applicable in set.ApplicableClasses)
+            var set = _info.PropertySets.FirstOrDefault(p => p.Name == setName);
+            if (set is not null)
             {
-                foreach (var concrete in FindClass(applicable)?.ConcreteClasses ?? Array.Empty<string>())
+                var concrete = set.ApplicableClasses
+                    .Select(name => _info[name])
+                    .Where(c => c is not null)
+                    .SelectMany(c => c!.MatchingConcreteClasses)
+                    .Select(c => c.Name)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList();
+                foreach (var name in concrete)
                 {
-                    result.Add(concrete);
-                    foreach (var typeName in FindClass(concrete)?.TypeClasses ?? Array.Empty<string>())
+                    result.Add(name.ToUpperInvariant());
+                    foreach (var typeName in _info[name]?.RelationTypeClasses ?? Array.Empty<string>())
                     {
-                        var type = FindClassIgnoreCase(typeName);
-                        if (type is not null)
+                        result.Add(typeName.ToUpperInvariant());
+
+                        // The audit adds the direct subtypes of the type object, such as IfcDoorStyle for IfcTypeProduct.
+                        foreach (var sub in _info[typeName]?.SubClasses ?? new List<ClassInfo>())
                         {
-                            result.Add(type.Name);
-                            result.UnionWith(type.ConcreteClasses);
+                            result.Add(sub.Name.ToUpperInvariant());
                         }
                     }
                 }
             }
 
-            _applicable[set.Name] = result;
+            _applicable[setName] = result;
             return result;
         }
     }
+
+    /// <summary>The classes a standard property set may be attached to, as the IFC documentation spells them.</summary>
+    public IReadOnlyCollection<string> ClassesOf(IfcPropertySet set) =>
+        AuditClassesOf(set.Name).Select(upper => _info[upper]?.Name ?? upper).ToList();
 
     /// <summary>
     /// The class that the whole of a partOf relation must be: IfcGroup for IfcRelAssignsToGroup, and so on.

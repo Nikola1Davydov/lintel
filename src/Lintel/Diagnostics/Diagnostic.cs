@@ -5,14 +5,11 @@ namespace Lintel.Diagnostics;
 
 public enum Severity
 {
-    /// <summary>The file cannot be compiled.</summary>
+    /// <summary>The file cannot be compiled: the official IDS audit would reject the result, or a rule of the language is broken.</summary>
     Error,
 
-    /// <summary>The file compiles, but the author probably meant something else or used a non-canonical spelling.</summary>
+    /// <summary>The file compiles to valid IDS, but the author probably meant something else or used a non-canonical spelling.</summary>
     Warning,
-
-    /// <summary>A fact the reviewer may want to see, such as an inferred data type.</summary>
-    Info,
 }
 
 /// <summary>A replacement of a range of the source text.</summary>

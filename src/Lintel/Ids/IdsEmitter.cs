@@ -7,6 +7,7 @@ using System.Xml;
 using System.Xml.Linq;
 using Lintel.Ifc;
 using Lintel.Model;
+using Lintel.Syntax;
 
 namespace Lintel.Ids;
 
@@ -48,16 +49,41 @@ public sealed class IdsEmitter
     public static XDocument Emit(RuleFile file) => new IdsEmitter(file).Write();
 
     /// <summary>The rule file as the text of an IDS file: UTF-8, indented.</summary>
-    public static string EmitText(RuleFile file)
+    public static string EmitText(RuleFile file) => Text(Emit(file));
+
+    /// <summary>An IDS document as text: UTF-8, indented.</summary>
+    public static string Text(XDocument document)
     {
         var settings = new XmlWriterSettings { Indent = true, Encoding = new UTF8Encoding(false), NewLineChars = "\n" };
         using var stream = new MemoryStream();
         using (var writer = XmlWriter.Create(stream, settings))
         {
-            Emit(file).Save(writer);
+            document.Save(writer);
         }
 
         return Encoding.UTF8.GetString(stream.ToArray()) + "\n";
+    }
+
+    /// <summary>The place in the source that an element of the document was written from, and the rule it belongs to.</summary>
+    internal sealed class Origin
+    {
+        public Origin(SourceSpan span, string? rule)
+        {
+            Span = span;
+            Rule = rule;
+        }
+
+        public SourceSpan Span { get; }
+
+        public string? Rule { get; }
+    }
+
+    private string? _rule;
+
+    private XElement From(XElement element, SourceSpan span)
+    {
+        element.AddAnnotation(new Origin(span, _rule));
+        return element;
     }
 
     private XDocument Write()
@@ -65,10 +91,13 @@ public sealed class IdsEmitter
         var info = new XElement(Ids + "info");
         foreach (var name in InfoOrder)
         {
-            var value = _file.Header.Get(name) ?? (name == "title" ? "Untitled" : null);
-            if (value is not null)
+            if (_file.Header.Texts.TryGetValue(name, out var text))
             {
-                info.Add(new XElement(Ids + name, value));
+                info.Add(From(new XElement(Ids + name, text.Value), text.Span));
+            }
+            else if (name == "title")
+            {
+                info.Add(new XElement(Ids + name, "Untitled"));
             }
         }
 
@@ -88,19 +117,24 @@ public sealed class IdsEmitter
         var versions = rule.Ifc ?? _file.Header.Ifc ?? new List<string>();
         _schemas = Resolver.SchemasOf(versions);
         _selection = Resolver.Selection(rule.Entity, _schemas);
+        _rule = rule.Label;
 
-        var specification = new XElement(
-            Ids + "specification",
-            new XAttribute("name", rule.Name),
-            new XAttribute("ifcVersion", string.Join(" ", versions)));
+        var specification = From(
+            new XElement(
+                Ids + "specification",
+                new XAttribute("name", rule.Name),
+                new XAttribute("ifcVersion", string.Join(" ", versions))),
+            rule.Span);
         AddAttribute(specification, "identifier", rule.Id);
         AddAttribute(specification, "description", rule.Description);
         AddAttribute(specification, "instructions", rule.Instructions);
 
-        var applicability = new XElement(
-            Ids + "applicability",
-            new XAttribute("minOccurs", rule.Count == RuleCount.AtLeastOne ? "1" : "0"),
-            new XAttribute("maxOccurs", rule.Count == RuleCount.None ? "0" : "unbounded"));
+        var applicability = From(
+            new XElement(
+                Ids + "applicability",
+                new XAttribute("minOccurs", rule.Count == RuleCount.AtLeastOne ? "1" : "0"),
+                new XAttribute("maxOccurs", rule.Count == RuleCount.None ? "0" : "unbounded")),
+            rule.HasFor ? rule.ForSpan : rule.Span);
         if (rule.Entity is not null)
         {
             applicability.Add(Entity(rule.Entity));
@@ -145,7 +179,9 @@ public sealed class IdsEmitter
         return specification;
     }
 
-    private XElement Facet(Facet facet)
+    private XElement Facet(Facet facet) => From(FacetElement(facet), facet.Span);
+
+    private XElement FacetElement(Facet facet)
     {
         switch (facet)
         {
@@ -154,7 +190,7 @@ public sealed class IdsEmitter
 
             case AttributeFacet attribute:
                 var attributeType = Resolver.AttributeType(attribute.Name, _selection, _schemas);
-                var attributeElement = new XElement(Ids + "attribute", new XElement(Ids + "name", Name(attribute.Name)));
+                var attributeElement = new XElement(Ids + "attribute", From(new XElement(Ids + "name", Name(attribute.Name)), attribute.Name.Span));
                 AddValue(attributeElement, attribute.Value, attributeType?.XmlBase, attributeType?.Type);
                 return attributeElement;
 
@@ -172,8 +208,8 @@ public sealed class IdsEmitter
                     propertyElement.Add(new XAttribute("dataType", property.DataType.ToUpperInvariant()));
                 }
 
-                propertyElement.Add(new XElement(Ids + "propertySet", Name(property.PropertySet)));
-                propertyElement.Add(new XElement(Ids + "baseName", Name(property.Name)));
+                propertyElement.Add(From(new XElement(Ids + "propertySet", Name(property.PropertySet)), property.PropertySet.Span));
+                propertyElement.Add(From(new XElement(Ids + "baseName", Name(property.Name)), property.Name.Span));
                 AddValue(propertyElement, property.Value, type?.XmlBase, type);
                 return propertyElement;
 
@@ -181,7 +217,7 @@ public sealed class IdsEmitter
                 // The IDS schema puts the value in front of the system.
                 var classificationElement = new XElement(Ids + "classification");
                 AddValue(classificationElement, classification.Value, "xs:string", null);
-                classificationElement.Add(new XElement(Ids + "system", Name(classification.System)));
+                classificationElement.Add(From(new XElement(Ids + "system", Name(classification.System)), classification.System.Span));
                 return classificationElement;
 
             case MaterialFacet material:
@@ -206,7 +242,7 @@ public sealed class IdsEmitter
 
     private XElement Entity(EntitySelector entity)
     {
-        var element = new XElement(Ids + "entity");
+        var element = From(new XElement(Ids + "entity"), entity.Classes.Span);
         var classes = entity.Classes;
         if (classes.Kind == MatcherKind.Pattern)
         {
@@ -221,7 +257,7 @@ public sealed class IdsEmitter
 
         if (entity.Types is { } types)
         {
-            element.Add(new XElement(Ids + "predefinedType", Name(types)));
+            element.Add(From(new XElement(Ids + "predefinedType", Name(types)), types.Span));
         }
 
         return element;
@@ -272,7 +308,7 @@ public sealed class IdsEmitter
 
         if (constraint.Equal is not null)
         {
-            facet.Add(new XElement(Ids + "value", Simple(Text(constraint.Equal, type))));
+            facet.Add(From(new XElement(Ids + "value", Simple(Text(constraint.Equal, type))), constraint.Span));
             return;
         }
 
@@ -318,7 +354,7 @@ public sealed class IdsEmitter
             }
         }
 
-        facet.Add(new XElement(Ids + "value", restriction));
+        facet.Add(From(new XElement(Ids + "value", restriction), constraint.Span));
     }
 
     private static XElement Facet(string name, string value) => new(Xs + name, new XAttribute("value", value));

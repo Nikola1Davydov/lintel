@@ -378,22 +378,74 @@ public static class Resolver
     }
 
     /// <summary>
-    /// The XML base type of the values of an attribute, and its data type when it is a single one, when every
-    /// selected class that has the attribute as a single value agrees. <c>null</c> otherwise.
+    /// What the values of an attribute facet are compared as; <c>null</c> when that is not known.
+    /// IDS fixes the XML type when every attribute of this name, on whatever class, has the same one: then a
+    /// value of another kind is an error. Otherwise the type of the selected classes is taken when they agree.
+    /// The data type, which gives the unit, comes from the selected classes.
     /// </summary>
-    public static (string XmlBase, IfcDataType? Type)? AttributeType(
+    public static ValueTyping? AttributeType(
         Matcher name,
         Dictionary<IfcSchema, HashSet<string>>? selection,
         IReadOnlyList<IfcSchema> schemas)
     {
         var comparable = AttributesOf(name, selection, schemas).Where(a => !a.IsCollection && a.XmlBase.Length > 0).ToList();
         var bases = comparable.Select(a => a.XmlBase).Distinct(StringComparer.Ordinal).ToList();
-        if (bases.Count != 1)
+        var types = comparable.Select(a => a.IfcType).Distinct(StringComparer.Ordinal).ToList();
+        var dataType = types.Count == 1 ? IfcDataTypes.Find(types[0]) : null;
+
+        // What the official audit expects, schema by schema.
+        var expected = schemas
+            .Select(schema => AuditRules.AttributeBases(AuditRules.Match(name, schema.Info.GetAttributeNames()), schema))
+            .ToList();
+        if (expected.Count > 0 && expected.All(e => e.Count == 1) && expected.All(e => e[0] == expected[0][0]))
         {
-            return null;
+            var fixedBase = expected[0][0];
+            return new ValueTyping(fixedBase, dataType?.XmlBase == fixedBase ? dataType : null, true);
         }
 
-        var types = comparable.Select(a => a.IfcType).Distinct(StringComparer.Ordinal).ToList();
-        return (bases[0], types.Count == 1 ? IfcDataTypes.Find(types[0]) : null);
+        if (bases.Count == 1 && expected.All(e => e.Contains(bases[0])))
+        {
+            return new ValueTyping(bases[0], dataType, false);
+        }
+
+        return null;
     }
+
+    /// <summary>
+    /// The predefined types that the standard lists for a selected class in any of the schemas. Such a value is
+    /// written as a bare name; any other text is a type of the user and is written in quotes.
+    /// </summary>
+    public static HashSet<string> StandardPredefinedTypes(EntitySelector entity, IReadOnlyList<IfcSchema> schemas)
+    {
+        var result = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var schema in schemas)
+        {
+            foreach (var name in AuditRules.Classes(entity, schemas, schema))
+            {
+                result.UnionWith(schema.Info[name]?.PredefinedTypeValues ?? Enumerable.Empty<string>());
+            }
+        }
+
+        return result;
+    }
+}
+
+/// <summary>What the values of a facet are compared as.</summary>
+public sealed class ValueTyping
+{
+    public ValueTyping(string xmlBase, IfcDataType? type, bool isChecked)
+    {
+        XmlBase = xmlBase;
+        Type = type;
+        Checked = isChecked;
+    }
+
+    /// <summary>The XML base type: <c>xs:string</c>, <c>xs:double</c>, ...</summary>
+    public string XmlBase { get; }
+
+    /// <summary>The IFC data type when it is a single one; it gives the unit of a measure.</summary>
+    public IfcDataType? Type { get; }
+
+    /// <summary>True when IDS fixes the base type, so that a value of another kind makes the file invalid.</summary>
+    public bool Checked { get; }
 }
