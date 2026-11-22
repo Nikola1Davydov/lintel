@@ -38,7 +38,7 @@ public sealed class IfcSchema
             _auditClasses[classInfo.Name.ToUpperInvariant()] = classInfo;
             if (classInfo.Type != ClassType.Enumeration)
             {
-                var found = new IfcClass(classInfo);
+                var found = new IfcClass(classInfo, IsEnumeration);
                 _classes[classInfo.Name] = found;
                 _classesByUpperName[classInfo.Name.ToUpperInvariant()] = found;
             }
@@ -67,6 +67,9 @@ public sealed class IfcSchema
 
     /// <summary>The schema as the official IDS audit knows it. The checks ask it wherever they must agree with the audit.</summary>
     internal SchemaInfo Info => _info;
+
+    private bool IsEnumeration(string typeName) =>
+        _auditClasses.TryGetValue(typeName.ToUpperInvariant(), out var found) && found.Type == ClassType.Enumeration;
 
     /// <summary>
     /// The class or the enumeration of this name, in any case, as the audit knows it; <c>null</c> when it knows none.
@@ -214,7 +217,7 @@ public sealed class IfcClass
     private readonly Lazy<IReadOnlyList<string>> _concrete;
     private readonly Lazy<IReadOnlyDictionary<string, IfcAttribute>> _attributes;
 
-    internal IfcClass(ClassInfo info)
+    internal IfcClass(ClassInfo info, Func<string, bool> isEnumeration)
     {
         _info = info;
         _concrete = new Lazy<IReadOnlyList<string>>(() =>
@@ -234,7 +237,7 @@ public sealed class IfcClass
             var attributes = new Dictionary<string, IfcAttribute>(StringComparer.Ordinal);
             foreach (var attribute in info.DirectAttributesInfo ?? Enumerable.Empty<AttributeInfo>())
             {
-                attributes[attribute.Name] = new IfcAttribute(attribute);
+                attributes[attribute.Name] = new IfcAttribute(attribute, isEnumeration);
             }
 
             return attributes;
@@ -266,12 +269,15 @@ public sealed class IfcClass
 /// <summary>An attribute of an entity class.</summary>
 public sealed class IfcAttribute
 {
-    internal IfcAttribute(AttributeInfo info)
+    internal IfcAttribute(AttributeInfo info, Func<string, bool> isEnumeration)
     {
         Name = info.Name;
         IfcType = info.BaseType;
-        // ids-lib leaves this empty for a type name that is not in upper case; ask the table of data types.
-        XmlBase = IfcDataTypes.Find(info.BaseType)?.XmlBase ?? string.Empty;
+        IsEnumeration = isEnumeration(info.BaseType);
+
+        // ids-lib leaves the XML type empty for a type name that is not in upper case; ask the table of data types.
+        // A value of an enumeration, such as the predefined type, is text.
+        XmlBase = IfcDataTypes.Find(info.BaseType)?.XmlBase ?? (IsEnumeration ? "xs:string" : string.Empty);
         IsCollection = info.IsCollection;
     }
 
@@ -282,6 +288,9 @@ public sealed class IfcAttribute
 
     /// <summary>The XML base type of the value (<c>xs:string</c>, <c>xs:double</c>, ...); empty for a reference to an object.</summary>
     public string XmlBase { get; }
+
+    /// <summary>True when the value is one of a list of values that IFC defines, such as the predefined type.</summary>
+    public bool IsEnumeration { get; }
 
     public bool IsCollection { get; }
 }

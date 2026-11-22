@@ -6,7 +6,7 @@ using Lintel.Syntax;
 namespace Lintel.Analysis;
 
 /// <summary>"Did you mean": the names nearest to what was written.</summary>
-internal static class Suggestions
+public static class Suggestions
 {
     /// <summary>The candidate that is the same word in another case, or near enough to be a slip of the pen; else <c>null</c>.</summary>
     public static string? Nearest(string written, IEnumerable<string> candidates)
