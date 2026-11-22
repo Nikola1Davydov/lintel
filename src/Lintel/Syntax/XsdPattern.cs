@@ -91,7 +91,7 @@ public static class XsdPattern
 
             return new PatternProblem(
                 PatternProblemKind.Anchor,
-                "A pattern always matches the whole value; '^' and '$' are not anchors here and would be taken literally.",
+                "A pattern always matches the whole value. In XML Schema '^' and '$' are ordinary characters; only some checkers read them as anchors.",
                 "Remove them. For a literal character write '\\^' or '[$]'.",
                 repaired);
         }
