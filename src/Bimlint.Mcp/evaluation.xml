@@ -1,0 +1,46 @@
+<!--
+  Questions for testing whether a language model can use this server: each needs the tools, has one answer
+  that can be compared as text, and does not change over time. The tests of the server check every answer.
+-->
+<evaluation>
+  <qa_pair>
+    <question>A requirement for an IFC4 model says that load-bearing walls must be marked as such. Which data type does the IFC standard give the property that marks a wall as load-bearing? Answer with the name of the IFC data type.</question>
+    <answer>IfcBoolean</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>In IFC4 the quantity set of the standard for building storeys has a quantity for the net height of the storey. What is its exact name in the standard, letter for letter?</question>
+    <answer>NetHeigtht</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>How many predefined types can a rule select for IfcSlab in IFC4, counting USERDEFINED and NOTDEFINED? Answer with a number.</question>
+    <answer>6</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>An IDS file is to be written for IFC2X3. Can a rule there select walls by a predefined type? Answer Yes or No.</question>
+    <answer>No</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>In IFC4, how many property sets of the standard have a property named AcousticRating? Answer with a number.</question>
+    <answer>8</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>In a Bimlint file for IFC4 the line "for IfcWall" selects walls together with their subtypes. How many class names does the compiled IDS file list for it? Answer with a number.</question>
+    <answer>3</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Someone wrote this rule for IFC4: for IfcDoor, require attribute OverallHeight >= 2.1 (a number without anything after it). Which diagnostic code does the checker answer with?</question>
+    <answer>E409</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Write a rule for IFC4 that requires the thermal transmittance of walls to be at most 0.24 W/m²K, with the property of the IFC standard. Compile it and report the value of the dataType attribute that the IDS file gives the property, exactly as the file writes it.</question>
+    <answer>IFCTHERMALTRANSMITTANCEMEASURE</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>A requirement says that walls must state whether they are accessible for the handicapped, with the property HandicapAccessible of the IFC4 standard. Which property set of the standard can a rule for IfcWall require for it? Answer with the name of the set, or None when there is none.</question>
+    <answer>None</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>According to the language guide, which keyword makes a rule select exactly the named class, without its subtypes? Answer with the keyword alone.</question>
+    <answer>only</answer>
+  </qa_pair>
+</evaluation>

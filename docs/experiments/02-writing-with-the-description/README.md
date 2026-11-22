@@ -1,7 +1,10 @@
 # Experiment 2: is one page enough to write valid rules?
 
+> When this experiment ran, the language was called Lintel and its files ended with `.lintel`. What the models were
+> given and what they answered is kept as it was, so those texts say Lintel.
+
 Experiment 1 asked what language models write without documentation. This one asks what they write with it:
-a model gets [LLM.md](../../../LLM.md), the one-page description of Lintel, and a requirements text it has not seen,
+a model gets [LLM.md](../../../LLM.md), the one-page description of Bimlint, and a requirements text it has not seen,
 and writes a rule file. The file goes through the checker of this repository.
 
 ## Method
@@ -16,7 +19,7 @@ and writes a rule file. The file goes through the checker of this repository.
   between a door and its wall.
 - **Subjects.** Four language models of one vendor, from the smallest to the largest tier (S, M, L, XL),
   each in a fresh session, one attempt, no feedback from the checker.
-- **Measure.** The diagnostics of `lintel check` on the answer, unchanged. The checker of this stage covers the
+- **Measure.** The diagnostics of `bimlint check` on the answer, unchanged. The checker of this stage covers the
   grammar and the rules of IDS that need no IFC schema; IFC names, data types and units were reviewed by hand.
 
 ## Result

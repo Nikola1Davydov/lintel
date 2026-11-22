@@ -1,12 +1,16 @@
 # Experiment 3: can a model write rules with the tools alone?
 
+> When this experiment ran, the language was called Lintel, its files ended with `.lintel` and the tools of the
+> server were named `lintel_...`. What the models were given and what they answered is kept as it was, so those
+> texts say Lintel.
+
 Experiment 2 gave a model the language on one page and asked for rules; the requirements named most of the
 property sets. This one gives a model the MCP server and requirements that name none of them. The model has to
 find the names in the IFC schema, write the rules, check them and produce the IDS file, with the tools only.
 
 ## Method
 
-- **Server.** `src/Lintel.Mcp` as it was when the experiment ran. [tools.txt](tools.txt) is what an MCP client
+- **Server.** `src/Bimlint.Mcp` as it was when the experiment ran. [tools.txt](tools.txt) is what an MCP client
   shows a model about it: the server instructions and the five tools with their parameters.
 - **Task.** [task.txt](task.txt): twelve requirements of a German requirements document (AIA) for IFC4. No property
   set, property, attribute or class of IFC is named, except a property set of the client's own. Eleven can be
@@ -20,7 +24,7 @@ find the names in the IFC schema, write the rules, check them and produce the ID
   answer of the tool, so they saw the texts that a client shows. Every call was logged. They were told to use no
   other source: no files, no web, no documents of this repository.
 - **Measures.** The log of the calls; the rule file under the checker; the rules against a reference solution
-  ([reference.lintel](reference.lintel)), requirement by requirement; and the report that each model wrote on what
+  ([reference.bimlint](reference.bimlint)), requirement by requirement; and the report that each model wrote on what
   was unclear, which was the main purpose.
 
 ## Result

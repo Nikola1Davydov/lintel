@@ -1,11 +1,11 @@
-# Lintel in one page
+# Bimlint in one page
 
-Lintel states information requirements for IFC models. It compiles to buildingSMART IDS 1.0.
+Bimlint states information requirements for IFC models. It compiles to buildingSMART IDS 1.0.
 This page is the whole language for an author; it is meant to be the description of the tool that checks rules.
 
 ## Shape of a file
 
-```lintel
+```bimlint
 title "Fire safety requirements"            # optional: the title of the IDS file
 ifc IFC4                                    # IFC2X3, IFC4 or IFC4X3_ADD2; several with commas
 define Status = ["New", "Existing", "Demolish"]         # optional: a named list
@@ -101,13 +101,13 @@ A custom property with a value gets the data type of the value (text: `IfcLabel`
    requirement; the wording itself stays in `source`.
 8. One rule for one numbered requirement of the source document; it may hold several `require` lines.
    Do not merge and do not invent requirements.
-9. Lintel cannot express: a comparison of two properties, sums and counts other than the two above, uniqueness,
+9. Bimlint cannot express: a comparison of two properties, sums and counts other than the two above, uniqueness,
    geometry, or anything between two elements beyond `part of`. Leave such a requirement out and say so in a comment;
    when the IDS file itself must say what it leaves out, say it in `description` at the top of the file.
 
 ## More examples
 
-```lintel
+```bimlint
 ifc IFC4
 define Status = ["New", "Existing", "Demolish", "Temporary"]
 

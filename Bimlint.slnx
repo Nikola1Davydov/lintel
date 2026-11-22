@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Bimlint/Bimlint.csproj" />
+    <Project Path="src/Bimlint.Cli/Bimlint.Cli.csproj" />
+    <Project Path="src/Bimlint.Mcp/Bimlint.Mcp.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Bimlint.Tests/Bimlint.Tests.csproj" />
+    <Project Path="tests/Bimlint.Mcp.Tests/Bimlint.Mcp.Tests.csproj" />
+  </Folder>
+</Solution>

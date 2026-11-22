@@ -1,10 +1,10 @@
-# Lintel language specification, v0.1 (draft)
+# Bimlint language specification, v0.1 (draft)
 
-Lintel is a small plain-text language for information requirements on BIM models.
-A Lintel file compiles to buildingSMART IDS 1.0, and every valid IDS 1.0 file can be imported into Lintel.
+Bimlint is a small plain-text language for information requirements on BIM models.
+A Bimlint file compiles to buildingSMART IDS 1.0, and every valid IDS 1.0 file can be imported into Bimlint.
 The main author is an LLM agent; a BIM coordinator reads and signs the result.
 
-"Lintel" is a working title. Nothing in this draft is frozen; open points are listed in [section 11](#11-open-questions).
+Nothing in this draft is frozen; decisions and open points are listed in [section 11](#11-decisions-and-open-questions).
 The short form of this document for agents is [LLM.md](LLM.md).
 
 ## 1. Design rules
@@ -23,7 +23,7 @@ The short form of this document for agents is [LLM.md](LLM.md).
 
 ## 2. A first example
 
-```lintel
+```bimlint
 ifc IFC4
 
 rule R1 "Fire rating of load-bearing walls"
@@ -159,7 +159,7 @@ The header statements come before the first rule. Each may appear once.
 | `description`, `version`, `purpose`, `milestone`, `copyright` | Free text |
 | `author "name@example.com"` | An e-mail address |
 | `date "2026-11-21"` | A date, `YYYY-MM-DD` |
-| `import "lists.lintel"` | Makes the `define` lists of another file available. It never adds rules. The path is relative to the importing file |
+| `import "lists.bimlint"` | Makes the `define` lists of another file available. It never adds rules. The path is relative to the importing file |
 
 `define Name = [...]` gives a name to a list of values, anywhere outside a rule. The name is used after `in`.
 A list holds strings or numbers, not both. A defined name cannot be defined again.
@@ -168,7 +168,7 @@ A list holds strings or numbers, not both. A defined name cannot be defined agai
 
 A rule has a name, an optional identifier before the name, optional metadata, one `for`, and requirements:
 
-```lintel fragment
+```bimlint fragment
 rule R1 "Fire rating of load-bearing walls"                  # identifier and name
   source "Alle tragenden Wände müssen ..."        # the original wording of the requirement
   description "Needed for the fire protection concept."      # why it matters
@@ -331,7 +331,7 @@ The value of an attribute has the type of the attribute in the IFC schema, and f
 
 ### 5.8 Units
 
-IDS stores every measure in its SI unit, whatever the unit of the model. In Lintel **a number that is compared with
+IDS stores every measure in its SI unit, whatever the unit of the model. In Bimlint **a number that is compared with
 a measure carries its unit**, and the compiler converts it: `150 mm` becomes `0.15`.
 A measure without a unit is an error, and so is a unit on a value that is not a measure.
 
@@ -354,11 +354,11 @@ Counts, ratios and plain numbers (`IfcCountMeasure`, `IfcRatioMeasure`, `IfcReal
 
 ## 6. Examples
 
-The file header (`ifc IFC4`) is left out of the fragments. The full file is [examples/showcase.lintel](examples/showcase.lintel).
+The file header (`ifc IFC4`) is left out of the fragments. The full file is [examples/showcase.bimlint](examples/showcase.bimlint).
 
 **1. A property must be present.**
 
-```lintel fragment
+```bimlint fragment
 rule "Walls state whether they are load-bearing"
   for IfcWall
   require property Pset_WallCommon.LoadBearing
@@ -366,7 +366,7 @@ rule "Walls state whether they are load-bearing"
 
 **2. Attributes.** Each requirement has its own statement.
 
-```lintel fragment
+```bimlint fragment
 rule R2 "Spaces are named"
   for IfcSpace
   require attribute Name
@@ -375,7 +375,7 @@ rule R2 "Spaces are named"
 
 **3. A predefined type and a quantity range with units.**
 
-```lintel fragment
+```bimlint fragment
 rule R3 "Floor slabs are 150 to 400 mm thick"
   for IfcSlab type FLOOR
   require property Qto_SlabBaseQuantities.Width between 150 mm and 400 mm
@@ -383,7 +383,7 @@ rule R3 "Floor slabs are 150 to 400 mm thick"
 
 **4. Selection by classification, material from a list.**
 
-```lintel fragment
+```bimlint fragment
 rule R4 "Structural systems are concrete or masonry"
   for any
   where classification "Uniclass 2015" matches "Ss_25.*"
@@ -392,7 +392,7 @@ rule R4 "Structural systems are concrete or masonry"
 
 **5. A relationship.**
 
-```lintel fragment
+```bimlint fragment
 rule R5 "Doors are located in a storey"
   for IfcDoor
   require part of IfcBuildingStorey via IfcRelContainedInSpatialStructure
@@ -400,7 +400,7 @@ rule R5 "Doors are located in a storey"
 
 **6. Optional: checked only when present.** A door without the property passes.
 
-```lintel fragment
+```bimlint fragment
 rule R6 "Acoustic rating of doors"
   for IfcDoor
   optional property Pset_DoorCommon.AcousticRating in ["Rw 32 dB", "Rw 37 dB", "Rw 42 dB"]
@@ -408,7 +408,7 @@ rule R6 "Acoustic rating of doors"
 
 **7. Prohibited information.**
 
-```lintel fragment
+```bimlint fragment
 rule R7 "No asbestos"
   for IfcElement
   prohibit material matches ".*[Aa]sbest.*"
@@ -416,7 +416,7 @@ rule R7 "No asbestos"
 
 **8. Two conditions, an upper bound with a unit.**
 
-```lintel fragment
+```bimlint fragment
 rule R8 "U-value of external load-bearing walls"
   for IfcWall
   where property Pset_WallCommon.IsExternal = true
@@ -426,7 +426,7 @@ rule R8 "U-value of external load-bearing walls"
 
 **9. Nothing of this kind may exist.**
 
-```lintel fragment
+```bimlint fragment
 rule R9 "No proxies"
   for IfcBuildingElementProxy
   require count = 0
@@ -434,7 +434,7 @@ rule R9 "No proxies"
 
 **10. At least one must exist, and each must be named.**
 
-```lintel fragment
+```bimlint fragment
 rule R10 "The model has named storeys"
   for IfcBuildingStorey
   require count >= 1
@@ -443,7 +443,7 @@ rule R10 "The model has named storeys"
 
 **11. A named list, several classes, a custom property set.**
 
-```lintel fragment
+```bimlint fragment
 define Status = ["New", "Existing", "Demolish", "Temporary"]
 
 rule R11 "Status of load-bearing elements"
@@ -457,7 +457,7 @@ rule R12 "Status of openings"
 
 **12. A custom property with a measure.** The data type is written, so the unit can be checked.
 
-```lintel fragment
+```bimlint fragment
 rule R13 "Clear height of escape routes"
   for IfcSpace
   where property ACME_Fire.EscapeRoute = true
@@ -466,7 +466,7 @@ rule R13 "Clear height of escape routes"
 
 **13. An exact class and another IFC version.**
 
-```lintel fragment
+```bimlint fragment
 rule R14 "Standard walls carry a reference"
   ifc IFC2X3
   for only IfcWallStandardCase
@@ -475,7 +475,7 @@ rule R14 "Standard walls carry a reference"
 
 **14. Several terms, a note for the reader, instructions for the modeller, a link to a dictionary.**
 
-```lintel fragment
+```bimlint fragment
 rule R15 "Door numbers"
   for IfcDoor
   require attribute Name matches "D[0-9]{3}" note "D and three digits"
@@ -487,7 +487,7 @@ rule R15 "Door numbers"
 
 **15. Selection without a class, a requirement on the class.**
 
-```lintel fragment
+```bimlint fragment
 rule R16 "The survey point is a proxy"
   for any
   where attribute Name = "Nullpunkt"
@@ -496,7 +496,7 @@ rule R16 "The survey point is a proxy"
 
 ## 7. Mapping to IDS 1.0
 
-| Lintel | IDS 1.0 |
+| Bimlint | IDS 1.0 |
 | --- | --- |
 | `title`, `description`, `version`, `author`, `date`, `purpose`, `milestone`, `copyright` | `ids/info/*` |
 | `ifc ...` in the header or in a rule | `specification/@ifcVersion` |
@@ -535,22 +535,22 @@ rule R16 "The survey point is a proxy"
 The `base` of an `xs:restriction` follows from the data type as in the IDS data type table
 (`xs:string`, `xs:double`, `xs:integer`, `xs:boolean`, `xs:date`, ...).
 
-**What round trips.** IDS to Lintel to IDS gives the same IDS, compared as canonical XML, for every file that the
+**What round trips.** IDS to Bimlint to IDS gives the same IDS, compared as canonical XML, for every file that the
 official audit accepts. The exceptions are rare constructs; of the 319 valid files in the official repository
 one has one of them (labels on single values). The importer reports each (`W701`):
 
 - a restriction on a name (class, predefined type, attribute, property set, property, classification system)
   other than a list or patterns: a length, a bound, or a list together with a pattern;
 - a base type other than `xs:string` for a name, a classification code or a material;
-- an annotation on a single value of a list (Lintel has `note` for a whole constraint);
+- an annotation on a single value of a list (Bimlint has `note` for a whole constraint);
 - a property with a value and no data type, which the audit lets pass only when an empty text meets the value;
-- a value of an attribute whose XML type the IFC schema leaves open, when the file chooses another type than Lintel would;
+- a value of an attribute whose XML type the IFC schema leaves open, when the file chooses another type than Bimlint would;
 - a file that declares another version of IDS than 1.0, or none: it is read as IDS 1.0.
 
 The importer checks itself: it compiles what it has written and compares the IDS with the one it read.
 Without a `W701` note the file comes back unchanged.
 
-Lintel to IDS to Lintel gives a file with the same meaning: the names of lists, comments, the units as written and
+Bimlint to IDS to Bimlint gives a file with the same meaning: the names of lists, comments, the units as written and
 the short form of a class with its subtypes are not stored in IDS.
 The importer writes a class list as `C` when it is exactly `C` with its subtypes, and as `only ...` otherwise.
 
@@ -671,11 +671,12 @@ Decided:
    a warning at most where it accepts.
 5. **A warning does not stop the compiler, but a tool for agents may wait for the repair.** The MCP server holds
    the IDS back while a warning has a ready fix, unless the author accepts the warning.
+6. **The language is called Bimlint** (BIM and lint), and its files end with `.bimlint`. The working title was
+   Lintel, which is a word of IFC itself (a predefined type of `IfcBeam`) and the name of several other tools.
 
 Open:
 
-1. **Name of the language** and the file extension (`.lintel` here).
-2. **`import`** brings lists only. Rule sets are combined by compiling several files.
-3. **Imperial units** are missing; `in` is a keyword.
-4. **Restrictions on names** other than a list or patterns, and the other limits of the round trip
+1. **`import`** brings lists only. Rule sets are combined by compiling several files.
+2. **Imperial units** are missing; `in` is a keyword.
+3. **Restrictions on names** other than a list or patterns, and the other limits of the round trip
    ([7](#7-mapping-to-ids-10)), are reported and not kept.

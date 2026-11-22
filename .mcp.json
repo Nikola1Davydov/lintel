@@ -1,9 +1,9 @@
 {
   "mcpServers": {
-    "lintel": {
+    "bimlint": {
       "type": "stdio",
       "command": "dotnet",
-      "args": ["run", "--project", "${CLAUDE_PROJECT_DIR:-.}/src/Lintel.Mcp"]
+      "args": ["run", "--project", "${CLAUDE_PROJECT_DIR:-.}/src/Bimlint.Mcp"]
     }
   }
 }

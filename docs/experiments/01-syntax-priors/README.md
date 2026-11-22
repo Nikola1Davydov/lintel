@@ -1,6 +1,6 @@
 # Experiment 1: the syntax that language models expect
 
-The main author of Lintel rules is a language model. A syntax that models guess without documentation needs
+The main author of Bimlint rules is a language model. A syntax that models guess without documentation needs
 fewer corrections than one they have to learn. This experiment asked models to write requirements in a language
 that does not exist, and counted what they wrote.
 
@@ -20,7 +20,7 @@ that does not exist, and counted what they wrote.
 
 ## What the models wrote
 
-| Question | Result (of 8) | Lintel v0.1 |
+| Question | Result (of 8) | Bimlint v0.1 |
 | --- | --- | --- |
 | Comment | `#` 8 | `#` |
 | IFC version | `ifc IFC4` 3, `schema IFC4` 3, `ifc-version IFC4` 1, none 1 | `ifc IFC4` |
@@ -56,8 +56,8 @@ that does not exist, and counted what they wrote.
 
 | Question | Result (of 8) | Consequence |
 | --- | --- | --- |
-| Does `IfcWall` include `IfcWallStandardCase`? | yes 6, no 2 | IDS says no. Lintel includes subtypes and writes the class list out; `only` gives the IDS meaning |
-| Unit of a number without a unit | SI 3, the unit of the model 2, "the unit of the schema" 1, always written 2 | IDS says SI. Lintel makes the unit mandatory for measures |
+| Does `IfcWall` include `IfcWallStandardCase`? | yes 6, no 2 | IDS says no. Bimlint includes subtypes and writes the class list out; `only` gives the IDS meaning |
+| Unit of a number without a unit | SI 3, the unit of the model 2, "the unit of the schema" 1, always written 2 | IDS says SI. Bimlint makes the unit mandatory for measures |
 | Does an element without an optional property pass? | yes 8 | `optional` is understood as IDS means it |
 
 The two models that answered "no" on subtypes were the larger ones with the constrained prompt, which names IDS.
@@ -75,7 +75,7 @@ It changed four things:
 4. `define` for named lists, `between` for ranges, `optional` and `prohibit` for the cardinalities.
 
 It also produced the list of other spellings that the compiler recognises and repairs
-(`src/Lintel/Syntax/Parser.Support.cs`), and three checks that guard meaning, not syntax:
+(`src/Bimlint/Syntax/Parser.Support.cs`), and three checks that guard meaning, not syntax:
 anchors in patterns, units on measures, and the predefined type written as an attribute.
 
 ## Limits

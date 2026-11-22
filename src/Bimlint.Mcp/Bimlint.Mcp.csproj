@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Bimlint.Mcp</RootNamespace>
+    <RollForward>Major</RollForward>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>bimlint-mcp</ToolCommandName>
+    <PackageId>Bimlint.Mcp</PackageId>
+    <Description>MCP server for Bimlint, a language for information requirements on IFC models that compiles to buildingSMART IDS. It gives an AI agent the language guide, the names of the IFC schema, a checker and the IDS compiler.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bimlint\Bimlint.csproj" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="ModelContextProtocol" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The one-page description of the language is the answer of the guide tool: one text, kept in one place. -->
+    <EmbeddedResource Include="..\..\LLM.md" LogicalName="Bimlint.Mcp.LLM.md" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <InternalsVisibleTo Include="Bimlint.Mcp.Tests" />
+  </ItemGroup>
+</Project>

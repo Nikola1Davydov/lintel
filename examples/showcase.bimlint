@@ -1,0 +1,118 @@
+# Every construct of Bimlint v0.1 in one file. The examples of SPEC.md are taken from here.
+
+title "Bimlint showcase"
+description "One rule for each construct of the language."
+version "0.1"
+author "bim@example.com"
+date "2026-11-21"
+ifc IFC4
+
+define Status = ["New", "Existing", "Demolish", "Temporary"]
+
+# 1. A property must be present.
+rule "Walls state whether they are load-bearing"
+  for IfcWall
+  require property Pset_WallCommon.LoadBearing
+
+# 2. Selection by a property value, a pattern, the original wording of the requirement.
+rule R1 "Fire rating of load-bearing walls"
+  source "Alle tragenden Wände müssen eine Feuerwiderstandsklasse aufweisen."
+  description "Needed for the fire protection concept."
+  instructions "Take the class from the fire protection report."
+  for IfcWall
+  where property Pset_WallCommon.LoadBearing = true
+  require property Pset_WallCommon.FireRating matches "(F|REI)[0-9]{2,3}"
+
+# 3. Attributes. Each requirement has its own statement.
+rule R2 "Spaces are named"
+  for IfcSpace
+  require attribute Name
+  require attribute LongName
+
+# 4. A predefined type and a quantity range with units.
+rule R3 "Floor slabs are 150 to 400 mm thick"
+  for IfcSlab type FLOOR
+  require property Qto_SlabBaseQuantities.Width between 150 mm and 400 mm
+
+# 5. Selection by classification, material from a list.
+rule R4 "Structural systems are concrete or masonry"
+  for any
+  where classification "Uniclass 2015" matches "Ss_25.*"
+  require material in ["Concrete", "Masonry"]
+
+# 6. A relationship.
+rule R5 "Doors are located in a storey"
+  for IfcDoor
+  require part of IfcBuildingStorey via IfcRelContainedInSpatialStructure
+
+# 7. Optional: checked only when present. A door without the property passes.
+rule R6 "Acoustic rating of doors"
+  for IfcDoor
+  optional property Pset_DoorCommon.AcousticRating in ["Rw 32 dB", "Rw 37 dB", "Rw 42 dB"]
+
+# 8. Prohibited information.
+rule R7 "No asbestos"
+  for IfcElement
+  prohibit material matches ".*[Aa]sbest.*"
+
+# 9. Two conditions, an upper bound with a unit.
+rule R8 "U-value of external load-bearing walls"
+  for IfcWall
+  where property Pset_WallCommon.IsExternal = true
+    and property Pset_WallCommon.LoadBearing = true
+  require property Pset_WallCommon.ThermalTransmittance <= 0.24 W/m2K
+
+# 10. Nothing of this kind may exist.
+rule R9 "No proxies"
+  for IfcBuildingElementProxy
+  require count = 0
+
+# 11. At least one must exist, and each must be named.
+rule R10 "The model has named storeys"
+  for IfcBuildingStorey
+  require count >= 1
+  require attribute Name
+
+# 12. A named list, several classes, a custom property set.
+rule R11 "Status of load-bearing elements"
+  for IfcWall, IfcColumn, IfcBeam, IfcSlab
+  require property ACME_Common.Status in Status
+
+rule R12 "Status of openings"
+  for IfcDoor, IfcWindow
+  require property ACME_Common.Status in Status
+
+# 13. A custom property with a measure: the data type is written, so the unit can be checked.
+rule R13 "Clear height of escape routes"
+  for IfcSpace
+  where property ACME_Fire.EscapeRoute = true
+  require property ACME_Fire.ClearHeight datatype IfcLengthMeasure >= 2.2 m
+
+# 14. An exact class and another IFC version.
+rule R14 "Standard walls carry a reference"
+  ifc IFC2X3
+  for only IfcWallStandardCase
+  require property Pset_WallCommon.Reference
+
+# 15. A note for the reader, instructions for the modeller, a link to a dictionary, a text length.
+rule R15 "Door numbers"
+  for IfcDoor
+  require attribute Name matches "D[0-9]{3}" note "D and three digits"
+    instructions "Take the number from the door schedule."
+  require attribute Tag length <= 12
+  require property Pset_DoorCommon.FireRating
+    uri "https://identifier.buildingsmart.org/uri/buildingsmart/ifc/4.3/prop/FireRating"
+
+# 16. Selection without a class, a requirement on the class.
+rule R16 "The survey point is a proxy"
+  for any
+  where attribute Name = "Nullpunkt"
+  require entity IfcBuildingElementProxy
+
+# 17. Names that are not plain words are quoted; several terms in one constraint; a list in a name position.
+rule R17 "Renovation data"
+  for IfcWall, IfcSlab
+  where property [Pset_WallCommon, Pset_SlabCommon].IsExternal = true
+  require property AC_Pset_RenovationAndPhasing."Renovation Status" in ["Existing", "New", "To be demolished"]
+  require property Qto_WallBaseQuantities.NetSideArea > 0 m2 and <= 500 m2
+  prohibit attribute Description = "TBD"
