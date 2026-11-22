@@ -21,6 +21,8 @@ public sealed class IdsImporter
 {
     private static readonly XNamespace Ids = "http://standards.buildingsmart.org/IDS";
     private static readonly XNamespace Xs = "http://www.w3.org/2001/XMLSchema";
+    private static readonly XNamespace Xsi = "http://www.w3.org/2001/XMLSchema-instance";
+    private const string SchemaLocation = "http://standards.buildingsmart.org/IDS http://standards.buildingsmart.org/IDS/1.0/ids.xsd";
     private static readonly Regex Number = new(@"^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$", RegexOptions.CultureInvariant);
     private static readonly Regex UpperName = new("^[A-Z][A-Z0-9_]*$", RegexOptions.CultureInvariant);
     private static readonly string[] InfoElements = { "title", "copyright", "version", "description", "author", "date", "purpose", "milestone" };
@@ -65,6 +67,18 @@ public sealed class IdsImporter
         if (root is null || root.Name != Ids + "ids")
         {
             throw new FormatException("The document is not an IDS file: the root element must be 'ids' in the IDS namespace.");
+        }
+
+        // The writer declares IDS 1.0. A file that declares another version, or none, is not kept as it is.
+        var location = string.Join(" ", ((string?)root.Attribute(Xsi + "schemaLocation") ?? string.Empty)
+            .Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries));
+        if (location != SchemaLocation)
+        {
+            Unsupported(
+                root,
+                location.Length == 0
+                    ? "The file does not say which version of IDS it is written in; it is read as IDS 1.0."
+                    : $"The file declares the schema '{location}'; it is read as IDS 1.0.");
         }
 
         var info = root.Element(Ids + "info");
@@ -632,9 +646,15 @@ public sealed class IdsImporter
         return new StringLiteral(value) { Span = span };
     }
 
-    private static string? Documentation(XElement restriction)
+    private string? Documentation(XElement restriction)
     {
-        var documentation = restriction.Element(Xs + "annotation")?.Element(Xs + "documentation");
+        var annotation = restriction.Element(Xs + "annotation");
+        if (annotation is not null && restriction.Elements().First() != annotation)
+        {
+            Unsupported(annotation, "The annotation of a restriction must be its first element.");
+        }
+
+        var documentation = annotation?.Element(Xs + "documentation");
         return documentation is null ? null : Normalize(documentation.Value);
     }
 

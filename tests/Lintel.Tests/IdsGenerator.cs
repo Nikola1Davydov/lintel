@@ -37,7 +37,7 @@ internal sealed class IdsGenerator
     private static readonly string[] Texts =
     {
         "F90", "REI 120", "Wand", "x", "Beton C25/30", "Außenwand", "a \"quoted\" word", "0", "12", "1.5", "TRUE", "true",
-        "Ss_25_10", "EF_25_10", "A.B", "it's", "<tag> & more", "back\\slash", "  padded  ", "#hash", "[a, b]",
+        "Ss_25_10", "EF_25_10", "A.B", "it's", "<tag> & more", "back\\slash", "  padded  ", "#hash", "[a, b]", string.Empty,
     };
 
     private static readonly string[] Patterns =

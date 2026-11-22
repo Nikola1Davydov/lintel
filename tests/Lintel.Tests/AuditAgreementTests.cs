@@ -17,8 +17,9 @@ namespace Lintel.Tests;
 public class AuditAgreementTests
 {
     /// <summary>
-    /// What Lintel cannot keep, and says so when it reads the file: restrictions on a name other than a list or
-    /// patterns, a base type other than text where the value is text, and notes on single values of a list.
+    /// What Lintel cannot keep, and says so when it reads the file (SPEC.md, section 7): restrictions on a name
+    /// other than a list or patterns, a base type other than text where the value is text, notes on single values
+    /// of a list, and a property value without a data type, which the audit lets pass when an empty text meets it.
     /// </summary>
     private static readonly string[] KnownLimits =
     {
@@ -27,6 +28,7 @@ public class AuditAgreementTests
         "A name is text; the restriction has the base",
         "The restriction has the base",
         "The annotation of the single value",
+        "The property has a value and no dataType",
     };
 
     private readonly ITestOutputHelper _output;

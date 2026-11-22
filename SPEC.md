@@ -541,7 +541,9 @@ the importer reports each of them (`W701`):
   other than a list or patterns: a length, a bound, or a list together with a pattern;
 - a base type other than `xs:string` for a name, a classification code or a material;
 - an annotation on a single value of a list (Lintel has `note` for a whole constraint);
-- a value of an attribute whose XML type the IFC schema leaves open, when the file chooses another type than Lintel would.
+- a property with a value and no data type, which the audit lets pass only when an empty text meets the value;
+- a value of an attribute whose XML type the IFC schema leaves open, when the file chooses another type than Lintel would;
+- a file that declares another version of IDS than 1.0, or none: it is read as IDS 1.0.
 
 The importer checks itself: it compiles what it has written and compares the IDS with the one it read.
 Without a `W701` note the file comes back unchanged.
