@@ -222,6 +222,35 @@ public class ServerTests
     }
 
     [Fact]
+    public async Task A_file_in_the_code_page_of_Windows_is_refused_with_the_line()
+    {
+        // Read with replacement characters, the wording of the requirement would reach the IDS file as "T?ren".
+        using var folder = new Folder();
+        const string rules = "ifc IFC4\nrule \"Türen\"\n  for IfcDoor\n  require attribute Name\n";
+        File.WriteAllBytes(folder.File("rules.bimlint"), System.Text.Encoding.Latin1.GetBytes(rules));
+
+        var answer = await _server.Call("bimlint_compile_rules", ("path", folder.File("rules.bimlint")), ("outputPath", folder.File("rules.ids")));
+
+        Assert.True(answer.Refused);
+        Assert.Contains("The text is not UTF-8: line 2 has a character in another encoding, near \"rule \"T?ren\"\". Save the file as UTF-8.", answer.Text);
+        Assert.False(File.Exists(folder.File("rules.ids")));
+    }
+
+    [Fact]
+    public async Task A_file_is_written_as_UTF_8_without_a_mark()
+    {
+        using var folder = new Folder();
+        const string rules = "ifc IFC4\nrule \"Türen\"\n  for IfcDoor\n  require attribute Name\n";
+
+        var answer = await _server.Call("bimlint_compile_rules", ("source", rules), ("outputPath", folder.File("rules.ids")));
+
+        Assert.False(answer.Refused);
+        var bytes = File.ReadAllBytes(folder.File("rules.ids"));
+        Assert.Equal((byte)'<', bytes[0]);
+        Assert.Contains("name=\"Türen\"", new System.Text.UTF8Encoding(false, throwOnInvalidBytes: true).GetString(bytes));
+    }
+
+    [Fact]
     public async Task What_an_IDS_file_has_that_Bimlint_does_not_keep_is_said()
     {
         const string ids = """

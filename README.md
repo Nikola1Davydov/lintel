@@ -74,6 +74,7 @@ the importer reports each case.
 | IDS output (`src/Bimlint/Ids`) | done: IDS 1.0, with the official audit as the last check |
 | IDS import (`src/Bimlint/Ids`) | done: reads IDS 1.0, folds a class list into a class with its subtypes, and checks that the file comes back unchanged |
 | Canonical printer (`src/Bimlint/Text`) | done, without comments |
+| Command line (`src/Bimlint.Cli`) | done: `check`, `compile`, `import`; installs as the .NET tool `bimlint` |
 | MCP server for agents (`src/Bimlint.Mcp`) | done: the language guide, a lookup of the IFC schema, the checker, the IDS compiler, the IDS reader |
 | Running rules on IFC and in Revit | not started |
 
@@ -85,24 +86,51 @@ Requires the .NET SDK 9.0.200 or later (the solution file is a `.slnx`). The lib
 dotnet test
 ```
 
-```bash
-dotnet run --project src/Bimlint.Cli -- check examples/showcase.bimlint
-```
-
-```bash
-dotnet run --project src/Bimlint.Cli -- compile examples/showcase.bimlint
-```
-
-```bash
-dotnet run --project src/Bimlint.Cli -- import path/to/file.ids
-```
-
-`check` prints the diagnostics as JSON and returns 1 when there are errors. `compile` prints the IDS file.
-`import` prints an IDS file as Bimlint, and what it could not keep on the error stream.
-
 The tests on the official IDS files need those files, which are not part of this repository.
 Clone [buildingSMART/IDS](https://github.com/buildingSMART/IDS) next to this folder, or set `BIMLINT_IDS_REPO` to
 its path; without it these tests are skipped. All other tests, the generated files included, need nothing.
+
+## Use it from the command line
+
+Two programs come out of this repository: `bimlint`, the command line, and `bimlint-mcp`, the server for AI agents
+of the next section. Build both once, as .NET tools, and install the one you need; they run on .NET 8 or later.
+
+```bash
+dotnet pack -c Release -o artifacts
+```
+
+```bash
+dotnet tool install --global --add-source artifacts Bimlint.Cli
+```
+
+Then, in any folder:
+
+```bash
+bimlint check rules.bimlint
+```
+
+```bash
+bimlint compile rules.bimlint -o rules.ids
+```
+
+```bash
+bimlint import rules.ids -o rules.bimlint
+```
+
+`check` prints the diagnostics as JSON and returns 1 when there are errors. `compile` writes the IDS file: errors
+stop it, warnings do not, and both go to standard error as the same JSON. `import` writes an IDS file as Bimlint,
+and what it could not keep goes to standard error. Without `-o` the result is printed; `-` as the file reads
+standard input. A run takes two to three seconds, nearly all of it start-up; the server of the next section
+pays that once and answers every later call in a fraction of a second.
+
+Files are UTF-8, and so is everything the program prints into a file or a pipe, whatever the code page of the
+console is. A rule file in another encoding is refused with the line of its first character that is not UTF-8:
+read as it is, an umlaut in the wording of a requirement would be lost on the way to the IDS file. On Windows
+write the file with `-o`: the `>` of Windows PowerShell stores what a program prints as UTF-16, and an IDS file
+stored that way contradicts its own first line.
+
+Without installing anything, `dotnet run --project src/Bimlint.Cli -- check examples/showcase.bimlint` does the
+same from this folder. After a `git pull`, pack again, `dotnet tool uninstall --global Bimlint.Cli` and install again.
 
 ## Use it from an AI agent
 
@@ -123,12 +151,11 @@ writes only `.ids` and `.bimlint` files where a tool is told to, replaces a file
 network. A relative path starts at the project folder.
 
 **In this repository** Claude Code finds the server by itself: [.mcp.json](.mcp.json) starts it with `dotnet run`.
+Run `dotnet build` once before: the first start otherwise compiles the server, which takes half a minute and can
+be longer than a client waits.
 
-**Anywhere else**, install it as a .NET tool and name it to the client:
-
-```bash
-dotnet pack src/Bimlint.Mcp -c Release -o artifacts
-```
+**Anywhere else**, which is where the requirements of a project are, install the server from the packages built
+[above](#use-it-from-the-command-line) and name it to the client:
 
 ```bash
 dotnet tool install --global --add-source artifacts Bimlint.Mcp
@@ -166,6 +193,7 @@ src/Bimlint/              the library: netstandard2.0 and net8.0
 src/Bimlint.Cli/          the command line
 src/Bimlint.Mcp/          the MCP server for AI agents
 tests/Bimlint.Tests/      tests of the library, including the code blocks of the documents
+tests/Bimlint.Cli.Tests/  tests of the command line, as a process
 tests/Bimlint.Mcp.Tests/  tests of the server, over the protocol
 docs/experiments/        the experiments behind the design
 ```

@@ -61,14 +61,20 @@ internal static class Files
             throw new ToolProblem($"The file {full} has {file.Length} bytes; the limit is {MaxBytes}.");
         }
 
+        byte[] bytes;
         try
         {
-            return File.ReadAllText(full);
+            bytes = File.ReadAllBytes(full);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             throw new ToolProblem($"The file {full} cannot be read: {exception.Message}");
         }
+
+        // A file in the code page of Windows is refused, not read with replacement characters.
+        return SourceText.TryDecode(bytes, out var content, out var problem)
+            ? content
+            : throw new ToolProblem($"The file {full} cannot be read. {problem}");
     }
 
     /// <summary>Writes the output of a tool to a file and returns its full path. An existing file is kept unless asked otherwise.</summary>
@@ -88,7 +94,7 @@ internal static class Files
                 Directory.CreateDirectory(directory);
             }
 
-            File.WriteAllText(full, content);
+            File.WriteAllText(full, content, SourceText.Utf8);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

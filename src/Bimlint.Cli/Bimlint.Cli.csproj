@@ -4,6 +4,11 @@
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>Bimlint.Cli</RootNamespace>
     <RollForward>Major</RollForward>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>bimlint</ToolCommandName>
+    <PackageId>Bimlint.Cli</PackageId>
+    <Description>The command line of Bimlint, a language for information requirements on IFC models: checks rule files, compiles them to buildingSMART IDS 1.0 and reads IDS files back.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bimlint\Bimlint.csproj" />
